@@ -1,0 +1,62 @@
+{
+  "orders": [
+    {
+      "id": "o01a1b1c-1dd1-4eee-f12f-oo01a1b1c1dd",
+      "customer_id": "a01j4k1j-1aa1-4aaa-a12a-aa01j4k1j1aa",
+      "number": 1001,
+      "order_status": "PENDING",
+      "items": [
+        {
+          "id": "i01a1b1c-1dd1-4eee-f12f-ii01a1b1c1dd",
+          "order_id": "o01a1b1c-1dd1-4eee-f12f-oo01a1b1c1dd",
+          "sku": "ST-32-S-32-RAW",
+          "style": "ST",
+          "waist": 32,
+          "shape": "S",
+          "inseam": 32,
+          "wash": "RAW",
+          "hem": "STH",
+          "quantity": 2,
+          "status": "PENDING"
+        }
+      ],
+      "created_at": "2024-01-18T10:00:00Z",
+      "updated_at": "2024-01-18T10:00:00Z",
+      "customer": {
+        "id": "a01j4k1j-1aa1-4aaa-a12a-aa01j4k1j1aa",
+        "email": "john.doe@example.com",
+        "name": "John Doe",
+        "phone": "+1 (555) 123-4567"
+      }
+    },
+    {
+      "id": "o02b2c2d-2ee2-5fff-g23g-oo02b2c2d2ee",
+      "customer_id": "b02k5l2k-2bb2-5bbb-b23b-bb02k5l2k2bb",
+      "number": 1002,
+      "order_status": "COMPLETED",
+      "items": [
+        {
+          "id": "i02b2c2d-2ee2-5fff-g23g-ii02b2c2d2ee",
+          "order_id": "o02b2c2d-2ee2-5fff-g23g-oo02b2c2d2ee",
+          "sku": "SL-30-R-34-BLK",
+          "style": "SL",
+          "waist": 30,
+          "shape": "R",
+          "inseam": 34,
+          "wash": "BLK",
+          "hem": "RWH",
+          "quantity": 1,
+          "status": "COMPLETED"
+        }
+      ],
+      "created_at": "2024-01-17T15:30:00Z",
+      "updated_at": "2024-01-18T09:45:00Z",
+      "customer": {
+        "id": "b02k5l2k-2bb2-5bbb-b23b-bb02k5l2k2bb",
+        "email": "jane.smith@example.com",
+        "name": "Jane Smith",
+        "phone": "+1 (555) 234-5678"
+      }
+    }
+  ]
+}

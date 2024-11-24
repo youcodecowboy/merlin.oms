@@ -1,0 +1,44 @@
+{
+  "pending_production": [
+    {
+      "id": "p15s8r5q-6on6-8plp-p78r-pp10s7tp04p5",
+      "sku": "ST-32-S-32-RAW",
+      "quantity": 50,
+      "priority": "HIGH",
+      "notes": "Priority batch for raw denim",
+      "status": "PENDING",
+      "created_at": "2024-01-18T08:00:00Z",
+      "updated_at": "2024-01-18T08:00:00Z"
+    },
+    {
+      "id": "q26t9s6r-7po7-9qmq-q89s-qq21t8uq15q6",
+      "sku": "SL-30-R-34-BLK",
+      "quantity": 25,
+      "priority": "MEDIUM",
+      "notes": "Standard production batch",
+      "status": "PENDING",
+      "created_at": "2024-01-18T09:30:00Z",
+      "updated_at": "2024-01-18T09:30:00Z"
+    }
+  ],
+  "production": [
+    {
+      "id": "r37u0t7s-8qp8-0rnr-r90t-rr32u9vr26r7",
+      "sku": "ST-32-S-32-RAW",
+      "current_stage": "SEWING",
+      "notes": "In progress",
+      "batch_id": "b01k4b1b-2bb2-5bbb-b23b-bb01k4b1b2bb",
+      "created_at": "2024-01-18T08:15:00Z",
+      "updated_at": "2024-01-18T10:30:00Z"
+    },
+    {
+      "id": "s48v1u8t-9rq9-1sos-s01u-ss43v0ws37s8",
+      "sku": "SL-30-R-34-BLK",
+      "current_stage": "CUTTING",
+      "notes": "Just started",
+      "batch_id": "c02l5c2c-3cc3-6ccc-c34c-cc02l5c2c3cc",
+      "created_at": "2024-01-18T09:45:00Z",
+      "updated_at": "2024-01-18T09:45:00Z"
+    }
+  ]
+}

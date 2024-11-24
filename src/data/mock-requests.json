@@ -1,0 +1,30 @@
+{
+  "requests": [
+    {
+      "id": "r01d1e1f-1gg1-4hhh-i12i-rr01d1e1f1gg",
+      "request_name": "Raw Denim Production",
+      "request_description": "Urgent production request for raw denim",
+      "assigned_to": "Production Team A",
+      "role": "Production Manager",
+      "status": "PENDING",
+      "priority": "HIGH",
+      "deadline": "2024-01-25T00:00:00Z",
+      "inventory_item_id": "i01m7n1k-0ih0-2jgj-j12l-ii54m1nj48j9",
+      "created_at": "2024-01-18T08:00:00Z",
+      "updated_at": "2024-01-18T08:00:00Z"
+    },
+    {
+      "id": "r02e2f2g-2hh2-5iii-j23j-rr02e2f2g2hh",
+      "request_name": "Black Denim QC",
+      "request_description": "Quality control check needed",
+      "assigned_to": "QC Team B",
+      "role": "QC Inspector",
+      "status": "IN_PROGRESS",
+      "priority": "MEDIUM",
+      "deadline": "2024-01-20T00:00:00Z",
+      "batch_id": "c02l5c2c-3cc3-6ccc-c34c-cc02l5c2c3cc",
+      "created_at": "2024-01-18T09:30:00Z",
+      "updated_at": "2024-01-18T09:30:00Z"
+    }
+  ]
+}

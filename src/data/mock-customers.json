@@ -1,0 +1,28 @@
+{
+  "customers": [
+    {
+      "id": "a01j4k1j-1aa1-4aaa-a12a-aa01j4k1j1aa",
+      "email": "john.doe@example.com",
+      "name": "John Doe",
+      "phone": "+1 (555) 123-4567",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "b02k5l2k-2bb2-5bbb-b23b-bb02k5l2k2bb",
+      "email": "jane.smith@example.com",
+      "name": "Jane Smith",
+      "phone": "+1 (555) 234-5678",
+      "created_at": "2024-01-02T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    },
+    {
+      "id": "c03l6m3l-3cc3-6ccc-c34c-cc03l6m3l3cc",
+      "email": "bob.wilson@example.com",
+      "name": "Bob Wilson",
+      "phone": "+1 (555) 345-6789",
+      "created_at": "2024-01-03T00:00:00Z",
+      "updated_at": "2024-01-03T00:00:00Z"
+    }
+  ]
+}

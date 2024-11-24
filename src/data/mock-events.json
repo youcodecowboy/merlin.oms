@@ -1,0 +1,58 @@
+{
+  "events": [
+    {
+      "id": "e01a1b1c-1dd1-4eee-f12f-ee01a1b1c1dd",
+      "event_name": "Cutting Started",
+      "event_description": "Started cutting process for batch #1001",
+      "created_at": "2024-01-18T08:00:00Z",
+      "completed_at": "2024-01-18T10:00:00Z",
+      "assigned_to": "Production Team A",
+      "team": "Cutting",
+      "status": "COMPLETED",
+      "priority": "HIGH",
+      "metadata": {
+        "batch_number": 1001,
+        "machine_id": "CUT-001",
+        "material_used": "Raw Denim"
+      },
+      "related_item_id": "i01m7n1k-0ih0-2jgj-j12l-ii54m1nj48j9",
+      "related_order_id": "o01a1b1c-1dd1-4eee-f12f-oo01a1b1c1dd"
+    },
+    {
+      "id": "e02b2c2d-2ee2-5fff-g23g-ee02b2c2d2ee",
+      "event_name": "QC Check Required",
+      "event_description": "Quality control check needed for completed batch",
+      "created_at": "2024-01-18T10:30:00Z",
+      "completed_at": null,
+      "assigned_to": "QC Team B",
+      "team": "Quality Control",
+      "status": "PENDING",
+      "priority": "URGENT",
+      "metadata": {
+        "batch_number": 1001,
+        "check_points": ["stitching", "wash", "finish"],
+        "notes": "Pay special attention to stitching quality"
+      },
+      "related_item_id": "i01m7n1k-0ih0-2jgj-j12l-ii54m1nj48j9",
+      "related_order_id": null
+    },
+    {
+      "id": "e03c3d3e-3ff3-6ggg-h34h-ee03c3d3e3ff",
+      "event_name": "Wash Process Started",
+      "event_description": "Started washing process for black denim batch",
+      "created_at": "2024-01-18T11:00:00Z",
+      "completed_at": null,
+      "assigned_to": "Washing Team C",
+      "team": "Washing",
+      "status": "IN_PROGRESS",
+      "priority": "MEDIUM",
+      "metadata": {
+        "batch_number": 1002,
+        "wash_type": "Stone Wash",
+        "temperature": "60°C"
+      },
+      "related_item_id": "j12n8o2l-1ji1-3khk-k23m-jj65n2ok59k0",
+      "related_order_id": "o02b2c2d-2ee2-5fff-g23g-oo02b2c2d2ee"
+    }
+  ]
+}

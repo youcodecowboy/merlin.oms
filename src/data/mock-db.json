@@ -1,0 +1,30 @@
+{
+  "orders": [],
+  "customers": [],
+  "products": [
+    {
+      "id": "d04h7g4f-5dc5-7ecf-e67g-dd09h6ie93e4",
+      "sku": "ST-32-S-32-RAW",
+      "name": "Standard Raw Denim - Slim 32",
+      "description": "Standard fit raw denim jeans with slim cut",
+      "price": 199.99,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    },
+    {
+      "id": "e15i8h5g-6ed6-8fdf-f78h-ee10i7jf04f5",
+      "sku": "SL-30-R-34-BLK",
+      "name": "Slim Black Denim - Regular 30",
+      "description": "Slim fit black denim jeans with regular cut",
+      "price": 179.99,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "inventory": [],
+  "events": [],
+  "batches": [],
+  "pending_production": [],
+  "production": [],
+  "requests": []
+}

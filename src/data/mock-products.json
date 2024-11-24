@@ -1,0 +1,50 @@
+{
+  "products": [
+ 
+    {
+      "id": "g37k0j7i-8gf8-0hfh-h90j-gg32k9lh26h7",
+      "sku": "ST-28-R-32-RAW",
+      "name": "Standard Raw Denim - Regular 28",
+      "description": "Standard fit raw denim jeans with regular cut",
+      "price": 199.99,
+      "created_at": "2024-01-02T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    },
+    {
+      "id": "h48l1k8j-9hg9-1igi-i01k-hh43l0mi37i8",
+      "sku": "SL-36-S-34-BLK",
+      "name": "Slim Black Denim - Slim 36",
+      "description": "Slim fit black denim jeans with slim cut",
+      "price": 179.99,
+      "created_at": "2024-01-02T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    },
+        {
+      "id": "h48l1k8j-9hg9-1igi-i01k-hh43l0mi3888",
+      "sku": "ST-32-S-34-IND",
+      "name": "Standard IND Denim - Slim 32",
+      "description": "Slim fit black denim jeans with slim cut",
+      "price": 179.99,
+      "created_at": "2024-01-02T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    },
+        {
+      "id": "h48l1k8j-9hg9-1igi-i01k-hh43l0mi3999",
+      "sku": "ST-32-X-36-RAW",
+      "name": "UNV ST32X - X 36",
+      "description": "Slim fit black denim jeans with slim cut",
+      "price": 179.99,
+      "created_at": "2024-01-02T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    },
+        {
+      "id": "h48l1k8j-9hg9-1igi-i01k-hh43l0mi3555",
+      "sku": "ST-32-X-30-IND",
+      "name": "Test IND order - X30",
+      "description": "Slim fit black denim jeans with slim cut",
+      "price": 179.99,
+      "created_at": "2024-01-02T00:00:00Z",
+      "updated_at": "2024-01-02T00:00:00Z"
+    }
+  ]
+}

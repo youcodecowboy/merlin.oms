@@ -1,0 +1,71 @@
+[auth]
+enabled = true
+
+[auth.email]
+enabled = true
+double_confirm_changes = false
+enable_confirmations = false
+
+[auth.external.github]
+enabled = false
+
+[auth.external.google]
+enabled = false
+
+[auth.external.facebook]
+enabled = false
+
+[auth.external.twitter]
+enabled = false
+
+[auth.external.apple]
+enabled = false
+
+[auth.external.azure]
+enabled = false
+
+[auth.external.bitbucket]
+enabled = false
+
+[auth.external.gitlab]
+enabled = false
+
+[auth.external.discord]
+enabled = false
+
+[auth.external.twitch]
+enabled = false
+
+[auth.external.slack]
+enabled = false
+
+[auth.external.spotify]
+enabled = false
+
+[auth.external.workos]
+enabled = false
+
+[auth.external.zoom]
+enabled = false
+
+[auth.external.keycloak]
+enabled = false
+
+[auth.external.linkedin]
+enabled = false
+
+[storage]
+enabled = true
+
+[rest]
+enabled = true
+
+[realtime]
+enabled = true
+
+[edge_functions]
+enabled = false
+
+[postgres]
+enabled = true
+port = 5432
