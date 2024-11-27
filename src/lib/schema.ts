@@ -60,20 +60,26 @@ export const patternRequestSchema = z.object({
   production_batch_id: z.string().optional()
 })
 
+// Define Priority type
+export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+
 // Pending Production Schema
-export const pendingProductionSchema = z.object({
-  id: z.string(),
-  sku: z.string(),
-  quantity: z.number(),
-  priority: z.enum(priorityLevels),
-  notes: z.string().optional(),
-  status: z.enum(['PENDING', 'ACCEPTED']).default('PENDING'),
-  created_at: z.string(),
-  updated_at: z.string()
-})
+export interface PendingProduction {
+  id: string
+  sku: string
+  quantity: number
+  priority: Priority
+  status: 'PENDING' | 'ACCEPTED'
+  batch_id?: string
+  order_id?: string
+  customer_id?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
 
 // Export types
-export type Request = z.infer<typeof patternRequestSchema>
+export type ZodRequest = z.infer<typeof patternRequestSchema>
 export type PendingProduction = z.infer<typeof pendingProductionSchema>
 
 // Event Schema
@@ -130,15 +136,16 @@ export interface Product {
   updated_at: string
 }
 
+// Batch Schema
 export interface Batch {
-  id?: string
+  id: string
   pending_request_id: string
   batch_number: number
   total_quantity: number
   status: 'CREATED' | 'IN_PROGRESS' | 'COMPLETED'
   notes?: string
-  created_at?: string
-  updated_at?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface ProductionRequest {
@@ -151,16 +158,32 @@ export interface ProductionRequest {
   updated_at?: string
 }
 
+export type InventoryStatus1 = 
+  | 'STOCK'              // Initial status
+  | 'PRODUCTION'         // During production
+  | 'WASH_REQUEST'       // During wash request
+  | 'WASH'              // After wash completion
+  | 'QC'                // During QC
+  | 'FINISHING'         // During finishing
+  | 'COMPLETE'          // Final status
+
 export interface InventoryItem {
-  id?: string
-  product_id?: string
+  id: string
   sku: string
-  status1: string
-  status2: string
-  qr_code?: string
+  status1: InventoryStatus1
+  status2: InventoryStatus2
+  location?: string
   batch_id?: string
-  created_at?: string
-  updated_at?: string
+  production_batch?: string
+  production_date?: string
+  timeline?: TimelineEntry[]
+  active_stage?: string
+  active_request?: {
+    id: string
+    type: RequestType
+    status: string
+    created_at: string
+  }
 }
 
 export interface InventoryEvent {
@@ -176,19 +199,18 @@ export interface InventoryEvent {
 }
 
 export type Status = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
-export type Priority = 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW'
 export type RequestType = 
-  | 'WASH_REQUEST' 
-  | 'PATTERN_REQUEST' 
-  | 'STOCK_REQUEST' 
-  | 'CUTTING_REQUEST'
+  | 'WASH_REQUEST'
+  | 'QC_REQUEST'
   | 'FINISHING_REQUEST'
-  | 'PACKING_REQUEST'
   | 'MOVE_REQUEST'
-  | 'REMAKE_REQUEST'
+  | 'STOCK_REQUEST'
+  | 'PATTERN_REQUEST'
 
-export type InventoryStatus1 = 'STOCK' | 'PRODUCTION'
-export type InventoryStatus2 = 'COMMITTED' | 'UNCOMMITTED'
+export type InventoryStatus2 = 
+  | 'UNCOMMITTED' 
+  | 'COMMITTED' 
+  | 'ASSIGNED'
 
 export interface OrderItem {
   sku: string
@@ -199,24 +221,26 @@ export interface OrderItem {
   wash: string
   hem: 'SND' | 'RAW' | 'ORL' | 'HRL'
   quantity: number
-  status?: 'PENDING' | 'COMMITTED' | 'PARTIALLY_COMMITTED' | 'PENDING_PRODUCTION'
-  inventory_items?: string[]
-  baseInseam?: number
+  status: 'PENDING' | 'COMMITTED' | 'PENDING_WASH' | 'PENDING_PRODUCTION'
+  inventory_item?: InventoryItem
+  requests?: Request[]
+  events?: OrderItemEvent[]
+  waitlist_position?: number
+  waitlist_sku?: string
 }
 
 export interface Order {
-  id?: string
+  id: string
   number: number
   customer_id: string
-  customer?: {
-    id: string
-    email: string
-    name: string
-  }
-  order_status: string
+  status: string
+  customer: Customer             
   items: OrderItem[]
-  created_at?: string
-  updated_at?: string
+  requests: Request[]           
+  events: OrderEvent[]          
+  created_at: string
+  updated_at: string
+  waitlist_entries?: WaitlistEntry[]
 }
 
 export interface Team {
@@ -249,16 +273,123 @@ export interface RequestEvent {
 }
 
 // Update Request type to include team assignments
+export interface RequestStep {
+  number: number
+  title: string
+  description: string
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+  metadata?: Record<string, any>
+}
+
 export interface Request {
-  id?: string
+  id: string
   request_type: RequestType
   status: Status
   priority: Priority
   assigned_team?: string
   assigned_to?: string
   assigned_at?: string
-  metadata?: Record<string, any>
+  
+  // Link to related entities
+  inventory_item?: InventoryItem  // Full item object instead of just ID
+  order?: Order                   // Full order object instead of just ID
+  customer?: Customer            // Full customer object
+  
+  // Request details
+  steps?: RequestStep[]
   events?: RequestEvent[]
+  metadata?: {
+    sku?: string
+    location?: string
+    [key: string]: any
+  }
+  notes?: string
   created_at: string
   updated_at: string
+}
+
+export interface Order {
+  id: string
+  number: number
+  status: string
+  customer: Customer             // Full customer object
+  items: OrderItem[]
+  requests: Request[]           // All requests related to this order
+  events: OrderEvent[]          // Order-level events
+  created_at: string
+  updated_at: string
+  waitlist_entries?: WaitlistEntry[]
+}
+
+export interface OrderItem {
+  sku: string
+  style: string
+  waist: number
+  shape: string
+  inseam: number
+  wash: string
+  hem: 'SND' | 'RAW' | 'ORL' | 'HRL'
+  quantity: number
+  status: 'PENDING' | 'COMMITTED' | 'PENDING_WASH' | 'PENDING_PRODUCTION'
+  inventory_item?: InventoryItem  // Full item object when committed
+  requests?: Request[]           // Requests specific to this item
+  events?: OrderItemEvent[]      // Item-level events
+  waitlist_position?: number
+  waitlist_sku?: string
+}
+
+export interface TimelineStage {
+  stage: string
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+  requestId?: string
+  completedAt?: string
+  metadata?: {
+    request_type?: RequestType
+    completed_by?: string
+    notes?: string
+  }
+}
+
+export interface OrderEvent {
+  id: string
+  order_id: string
+  event_type: string
+  description: string
+  timestamp: string
+  metadata?: Record<string, any>
+}
+
+export interface OrderItemEvent {
+  id: string
+  order_item_id: string
+  event_type: string
+  description: string
+  timestamp: string
+  metadata?: Record<string, any>
+}
+
+export interface WaitlistEntry {
+  id: string
+  order_id: string
+  order_number: number
+  sku: string           // The specific SKU requested
+  raw_sku: string       // The universal/production SKU
+  quantity: number
+  priority: Priority
+  created_at: string
+  position: number      // Position in waitlist for this SKU
+}
+
+// Add this to your schema
+export interface ProductionBatch {
+  id: string
+  batch_number: number
+  sku: string
+  quantity: number
+  status: 'CREATED' | 'IN_PROGRESS' | 'COMPLETED'
+  created_at: string
+  updated_at: string
+  notes?: string
+  order_id?: string
+  customer_id?: string
 }

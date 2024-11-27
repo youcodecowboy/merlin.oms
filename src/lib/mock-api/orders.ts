@@ -1,174 +1,165 @@
 import { nanoid } from 'nanoid'
-import type { Order } from '@/lib/schema'
-import { getMockInventoryItems, updateMockInventoryItem } from './inventory'
-import { createMockPendingProduction } from './production'
-import { isExactSKUMatch, isUniversalSKUMatch, getUniversalSKU } from '@/lib/utils/sku'
+import type { Order, OrderItem } from '@/lib/schema'
+import { eventTracker } from '@/lib/services/event-tracking'
 
-// Load persisted data or use defaults
-const loadPersistedData = () => {
-  try {
-    const savedOrders = localStorage.getItem('mockOrders')
-    return savedOrders ? JSON.parse(savedOrders) : []
-  } catch (error) {
-    console.error('Failed to load orders:', error)
-    return []
-  }
+// Storage key
+const STORAGE_KEY = 'mockOrders'
+
+// Load persisted orders
+let mockOrders: Order[] = (() => {
+  const saved = localStorage.getItem(STORAGE_KEY)
+  return saved ? JSON.parse(saved) : []
+})()
+
+// Helper to persist
+const persistOrders = () => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(mockOrders))
 }
 
-// Initialize with persisted or default data
-let mockOrders = loadPersistedData()
-
-// Helper function to persist data
-const persistData = () => {
-  try {
-    localStorage.setItem('mockOrders', JSON.stringify(mockOrders))
-  } catch (error) {
-    console.error('Failed to persist orders:', error)
-  }
-}
-
-export async function getMockOrders() {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500))
-  return mockOrders
-}
-
-export async function getMockOrder(id: string) {
-  await new Promise(resolve => setTimeout(resolve, 500))
-  return mockOrders.find(order => order.id === id)
-}
-
-export async function createMockOrder(orderData: Partial<Order>): Promise<Order> {
-  console.log('Creating order with data:', orderData) // Debug log
-
-  // 1. Create the order with initial PENDING status
+export async function createMockOrder(data: {
+  customer: Order['customer']
+  items: OrderItem[]
+}): Promise<Order> {
   const order: Order = {
-    id: `ord_${nanoid()}`,
-    number: Math.floor(Math.random() * 9000) + 1000,
-    customer_id: orderData.customer_id!,
-    customer: orderData.customer!,
-    order_status: 'PENDING',
-    items: orderData.items || [],
+    id: nanoid(),
+    number: Math.floor(Math.random() * 10000).toString(),
+    customer: data.customer,
+    items: data.items,
+    status: 'PENDING',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
 
-  console.log('Initial order object:', order) // Debug log
+  // Create order event
+  await eventTracker.createEvent(
+    'ORDER',
+    'CREATED',
+    {
+      order_id: order.id,
+      customer_id: order.customer?.id,
+      timestamp: order.created_at,
+      status: order.status,
+      notes: `Order ${order.number} created with ${order.items.length} items`
+    }
+  )
 
-  // 2. Check inventory for each item
-  const inventoryItems = await getMockInventoryItems()
-  const itemResults = await Promise.all(order.items.map(async (item) => {
-    console.log('Processing order item:', item) // Debug log
-
-    // First, look for exact SKU matches
-    const exactMatches = inventoryItems.filter(invItem => 
-      isExactSKUMatch(item.sku, invItem.sku) &&
-      invItem.status2 === 'UNCOMMITTED'
-    )
-
-    if (exactMatches.length >= item.quantity) {
-      // We have enough exact matches
-      const selectedItems = exactMatches.slice(0, item.quantity)
-      await Promise.all(selectedItems.map(invItem =>
-        updateMockInventoryItem(invItem.id!, {
-          status2: 'COMMITTED',
-          order_id: order.id
-        })
-      ))
-
-      return {
-        ...item,
-        status: 'COMMITTED',
-        inventory_items: selectedItems.map(i => i.id)
+  // Create events for each item
+  for (const item of order.items) {
+    await eventTracker.createEvent(
+      'ORDER',
+      'ITEM_ADDED',
+      {
+        order_id: order.id,
+        customer_id: order.customer?.id,
+        sku: item.sku,
+        quantity: item.quantity,
+        status: item.status,
+        timestamp: order.created_at,
+        notes: `Added ${item.sku} to order ${order.number}`
       }
-    }
-
-    // If no exact matches, look for universal matches
-    const universalMatches = inventoryItems.filter(invItem => 
-      isUniversalSKUMatch(item.sku, invItem.sku) &&
-      invItem.status2 === 'UNCOMMITTED'
     )
+  }
 
-    if (universalMatches.length >= item.quantity) {
-      // We have enough universal matches
-      const selectedItems = universalMatches.slice(0, item.quantity)
-      await Promise.all(selectedItems.map(invItem =>
-        updateMockInventoryItem(invItem.id!, {
-          status2: 'COMMITTED',
-          order_id: order.id
-        })
-      ))
-
-      return {
-        ...item,
-        status: 'COMMITTED',
-        inventory_items: selectedItems.map(i => i.id)
-      }
-    }
-
-    // If we get here, we need to create a production request
-    // Convert to universal SKU for production
-    const universalSKU = getUniversalSKU(item.sku)
-    if (!universalSKU) {
-      throw new Error(`Could not generate universal SKU for ${item.sku}`)
-    }
-
-    // Create production request with universal SKU
-    await createMockPendingProduction({
-      sku: universalSKU,
-      quantity: item.quantity,
-      priority: 'MEDIUM',
-      order_id: order.id
-    })
-
-    return {
-      ...item,
-      status: 'PENDING_PRODUCTION'
-    }
-  }))
-
-  // 3. Update order status based on items
-  const allCommitted = itemResults.every(item => item.status === 'COMMITTED')
-  const anyPending = itemResults.some(item => item.status === 'PENDING_PRODUCTION')
-
-  order.items = itemResults
-  order.order_status = allCommitted ? 'COMMITTED' : 
-    anyPending ? 'PENDING_PRODUCTION' : 'PENDING'
-
-  // 4. Save order and persist
-  console.log('Final order to be saved:', order) // Debug log
   mockOrders.push(order)
-  persistData()
+  persistOrders()
 
   return order
 }
 
-export async function updateMockOrder(id: string, updates: Partial<Order>): Promise<Order | undefined> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500))
-  
-  const index = mockOrders.findIndex(order => order.id === id)
-  if (index !== -1) {
-    mockOrders[index] = {
-      ...mockOrders[index],
-      ...updates,
-      updated_at: new Date().toISOString()
+export async function updateMockOrder(
+  orderId: string, 
+  updateFn: (order: Order) => Order
+): Promise<Order> {
+  const orderIndex = mockOrders.findIndex(o => o.id === orderId)
+  if (orderIndex === -1) throw new Error('Order not found')
+
+  const oldOrder = mockOrders[orderIndex]
+  if (!oldOrder) throw new Error('Order not found')
+
+  const updatedOrder = updateFn({ ...oldOrder })
+  updatedOrder.updated_at = new Date().toISOString()
+
+  // Create update event
+  await eventTracker.createEvent(
+    'ORDER',
+    'UPDATED',
+    {
+      order_id: updatedOrder.id,
+      customer_id: updatedOrder.customer?.id,
+      previous_status: oldOrder.status,
+      new_status: updatedOrder.status,
+      timestamp: updatedOrder.updated_at,
+      notes: `Order ${updatedOrder.number} updated`
     }
-    persistData()
-    return mockOrders[index]
+  )
+
+  // Track status changes
+  if (oldOrder.status !== updatedOrder.status) {
+    await eventTracker.createEvent(
+      'ORDER',
+      'STATUS_CHANGED',
+      {
+        order_id: updatedOrder.id,
+        customer_id: updatedOrder.customer?.id,
+        previous_status: oldOrder.status,
+        new_status: updatedOrder.status,
+        timestamp: updatedOrder.updated_at,
+        notes: `Order status changed from ${oldOrder.status} to ${updatedOrder.status}`
+      }
+    )
   }
-  return undefined
+
+  // Track item changes
+  const oldItems = new Set(oldOrder.items.map(i => i.sku))
+  const newItems = new Set(updatedOrder.items.map(i => i.sku))
+
+  // Track removed items
+  for (const oldItem of oldOrder.items) {
+    if (!newItems.has(oldItem.sku)) {
+      await eventTracker.createEvent(
+        'ORDER',
+        'ITEM_REMOVED',
+        {
+          order_id: updatedOrder.id,
+          customer_id: updatedOrder.customer?.id,
+          sku: oldItem.sku,
+          quantity: oldItem.quantity,
+          timestamp: updatedOrder.updated_at,
+          notes: `Removed ${oldItem.sku} from order ${updatedOrder.number}`
+        }
+      )
+    }
+  }
+
+  // Track added items
+  for (const newItem of updatedOrder.items) {
+    if (!oldItems.has(newItem.sku)) {
+      await eventTracker.createEvent(
+        'ORDER',
+        'ITEM_ADDED',
+        {
+          order_id: updatedOrder.id,
+          customer_id: updatedOrder.customer?.id,
+          sku: newItem.sku,
+          quantity: newItem.quantity,
+          status: newItem.status,
+          timestamp: updatedOrder.updated_at,
+          notes: `Added ${newItem.sku} to order ${updatedOrder.number}`
+        }
+      )
+    }
+  }
+
+  mockOrders[orderIndex] = updatedOrder
+  persistOrders()
+
+  return updatedOrder
 }
 
-export async function deleteMockOrder(id: string): Promise<boolean> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500))
-  
-  const index = mockOrders.findIndex(order => order.id === id)
-  if (index !== -1) {
-    mockOrders.splice(index, 1)
-    persistData()
-    return true
-  }
-  return false
+export function getMockOrder(orderId: string): Order | undefined {
+  return mockOrders.find(o => o.id === orderId)
+}
+
+export function getMockOrders(): Order[] {
+  return mockOrders
 }

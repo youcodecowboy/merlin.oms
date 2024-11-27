@@ -1,71 +1,68 @@
-import { delay } from '../utils'
-import type { Event } from '../schema'
-import mockDb from '@/data/mock-db.json'
+import { nanoid } from 'nanoid'
+import type { InventoryEvent } from '../schema'
 
-export async function getMockEvents(params: {
-  page: number
-  pageSize: number
-  sortBy: string
-  sortOrder: 'asc' | 'desc'
-  team?: string
-  status?: string
-  priority?: string
-  startDate?: string
-  endDate?: string
-}): Promise<{ items: Event[]; total: number }> {
-  await delay()
+// Initialize events storage
+const STORAGE_KEY = 'mockInventoryEvents'
+let mockEvents: InventoryEvent[] = (() => {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  return stored ? JSON.parse(stored) : []
+})()
 
-  let items = [...mockDb.events]
-
-  // Apply filters
-  if (params.team) {
-    items = items.filter(item => item.team.toLowerCase().includes(params.team!.toLowerCase()))
-  }
-
-  if (params.status) {
-    items = items.filter(item => item.status === params.status)
-  }
-
-  if (params.priority) {
-    items = items.filter(item => item.priority === params.priority)
-  }
-
-  if (params.startDate) {
-    items = items.filter(item => new Date(item.created_at) >= new Date(params.startDate!))
-  }
-
-  if (params.endDate) {
-    items = items.filter(item => new Date(item.created_at) <= new Date(params.endDate!))
-  }
-
-  // Apply sorting
-  items.sort((a, b) => {
-    const aValue = a[params.sortBy as keyof Event]
-    const bValue = b[params.sortBy as keyof Event]
-    if (aValue < bValue) return params.sortOrder === 'asc' ? -1 : 1
-    if (aValue > bValue) return params.sortOrder === 'asc' ? 1 : -1
-    return 0
-  })
-
-  // Apply pagination
-  const start = (params.page - 1) * params.pageSize
-  const paginatedItems = items.slice(start, start + params.pageSize)
-
-  return {
-    items: paginatedItems,
-    total: items.length
-  }
+// Helper to save to localStorage
+function persistEvents() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(mockEvents))
 }
 
-export async function createMockEvent(data: Omit<Event, 'id' | 'created_at'>): Promise<Event> {
-  await delay()
+export async function getMockInventoryEvents(inventoryId: string): Promise<InventoryEvent[]> {
+  return mockEvents.filter(event => event.inventory_item_id === inventoryId)
+}
 
-  const newEvent: Event = {
-    id: crypto.randomUUID(),
+export async function createMockInventoryEvent(data: {
+  inventory_item_id: string
+  event_name: string
+  event_description?: string
+  status: 'PENDING' | 'COMPLETED'
+  timestamp: string
+  metadata?: Record<string, any>
+}): Promise<InventoryEvent> {
+  const event: InventoryEvent = {
+    id: nanoid(),
+    inventory_item_id: data.inventory_item_id,
+    event_name: data.event_name,
+    event_description: data.event_description,
+    status: data.status,
+    timestamp: data.timestamp,
+    metadata: data.metadata,
     created_at: new Date().toISOString(),
-    ...data
+    updated_at: new Date().toISOString()
   }
 
-  mockDb.events.push(newEvent)
-  return newEvent
+  mockEvents.push(event)
+  persistEvents()
+
+  return event
 }
+
+export async function logStatusChange(
+  item: InventoryItem,
+  previousStatus: string,
+  newStatus: string,
+  metadata?: Record<string, any>
+) {
+  return createMockInventoryEvent({
+    inventory_item_id: item.id,
+    event_name: 'STATUS_CHANGED',
+    event_description: `Status changed from ${previousStatus} to ${newStatus}`,
+    status: 'COMPLETED',
+    timestamp: new Date().toISOString(),
+    metadata: {
+      previous_status: previousStatus,
+      new_status: newStatus,
+      order_id: item.order_id,
+      ...metadata
+    }
+  })
+}
+
+// Export for testing
+export { mockEvents }

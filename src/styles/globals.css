@@ -1,0 +1,6 @@
+@layer base {
+  :root {
+    --navigation-menu-trigger-height: theme(spacing.10);
+    --navigation-menu-trigger-width: theme(spacing.32);
+  }
+} 

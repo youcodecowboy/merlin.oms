@@ -1,23 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { OrdersTable } from '@/components/orders/OrdersTable'
 import { CreateOrderDialog } from '@/components/orders/CreateOrderDialog'
 import { PageLayout } from '@/components/PageLayout'
 import { Button } from '@/components/ui/button'
 import { ShopifyIcon } from '@/components/icons/ShopifyIcon'
-import { getMockOrders } from '@/lib/mock-api'
-import { useEffect } from 'react'
-import type { Order } from '@/lib/schema'
+import { mockDB } from '@/lib/mock-db/store'
+import type { DBOrder } from '@/lib/schema/database'
 
 export function Orders() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [orders, setOrders] = useState<Order[]>([])
+  const [orders, setOrders] = useState<DBOrder[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadOrders = async () => {
     try {
       setLoading(true)
-      const data = await getMockOrders()
-      setOrders(data)
+      setOrders(mockDB.orders)
     } catch (error) {
       console.error('Failed to load orders:', error)
     } finally {
@@ -51,7 +49,8 @@ export function Orders() {
     >
       <OrdersTable 
         key={refreshTrigger}
-        orders={orders}
+        data={orders}
+        loading={loading}
       />
     </PageLayout>
   )

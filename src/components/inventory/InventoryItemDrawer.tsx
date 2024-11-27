@@ -1,111 +1,124 @@
-import { useState } from 'react'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
-import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { QRCodeDownload } from "@/components/QRCodeDownload"
-import { X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { InventoryItemDetails } from "./InventoryItemDetails"
+import { ItemEventHistory } from "./ItemEventHistory"
+import { useInventoryData } from "@/lib/hooks/useInventoryData"
+import { Loader2 } from "lucide-react"
+import type { InventoryItem } from "@/lib/schema"
 
 interface InventoryItemDrawerProps {
-  item: any // Replace with proper type
+  item: InventoryItem | null
   open: boolean
   onClose: () => void
 }
 
-export function InventoryItemDrawer({
-  item,
-  open,
-  onClose
-}: InventoryItemDrawerProps) {
+export function InventoryItemDrawer({ item, open, onClose }: InventoryItemDrawerProps) {
+  const {
+    item: itemData,
+    activeRequest,
+    events,
+    loading,
+    error
+  } = useInventoryData(item?.id)
+
   if (!item) return null
+
+  if (loading) {
+    return (
+      <Sheet open={open} onOpenChange={onClose}>
+        <SheetContent>
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  if (error) {
+    return (
+      <Sheet open={open} onOpenChange={onClose}>
+        <SheetContent>
+          <div className="flex flex-col items-center justify-center h-full">
+            <p className="text-destructive">{error}</p>
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-xl">
-        <div className="flex flex-col h-full">
-          <SheetHeader className="space-y-4 pb-4 border-b">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <SheetTitle className="text-xl font-mono">
-                  {item.sku}
-                </SheetTitle>
-                <p className="text-sm text-muted-foreground">
-                  Location: Bin A-123
-                </p>
+      <SheetContent className="w-[600px] sm:w-[540px] overflow-y-auto">
+        <div className="space-y-6 pt-6">
+          {/* Basic Info */}
+          <div>
+            <h2 className="text-lg font-semibold mb-2">Item Details</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="font-mono">{item.sku}</span>
+              <Badge>{item.status1}</Badge>
+              <Badge variant="outline">{item.status2}</Badge>
+            </div>
+            <InventoryItemDetails item={item} />
+          </div>
+
+          <Separator />
+
+          {/* Active Request */}
+          {activeRequest && (
+            <>
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Active Request</h2>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Request Type</span>
+                    <Badge>{activeRequest.request_type}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Status</span>
+                    <Badge variant="outline">{activeRequest.status}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Created</span>
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(activeRequest.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge
-                  className={cn(
-                    "h-6 px-2 text-xs",
-                    item.status === 'READY' && "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+              <Separator />
+            </>
+          )}
+
+          {/* Production Info */}
+          {item.production_batch && (
+            <>
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Production Info</h2>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Batch ID</span>
+                    <span className="font-mono">{item.production_batch}</span>
+                  </div>
+                  {item.production_date && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Production Date</span>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(item.production_date).toLocaleString()}
+                      </span>
+                    </div>
                   )}
-                >
-                  {item.status}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onClose}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-auto py-4">
-            {/* QR Code */}
-            <div className="flex justify-center p-4 bg-muted/50 rounded-lg mb-6">
-              <QRCodeDownload
-                qrCode="data:image/png;base64,..."
-                fileName={`qr-${item.sku}`}
-                variant="outline"
-              />
-            </div>
-
-            {/* Item Details */}
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">Production Status</h3>
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Current Stage</span>
-                      <span className="font-medium">Cutting</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Started</span>
-                      <span className="font-medium">Jan 15, 2024</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>ETA</span>
-                      <span className="font-medium">Jan 25, 2024</span>
-                    </div>
-                  </div>
                 </div>
               </div>
+              <Separator />
+            </>
+          )}
 
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">Linked Order</h3>
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Order Number</span>
-                      <span className="font-medium">#1001</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Customer</span>
-                      <span className="font-medium">John Doe</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Event History */}
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Event History</h2>
+            <ItemEventHistory itemId={item.id} />
           </div>
         </div>
       </SheetContent>

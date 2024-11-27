@@ -5,60 +5,33 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
-import { Loader2 } from "lucide-react"
-import type { PendingProduction } from "@/lib/schema"
-import { acceptMockProductionRequest } from '@/lib/mock-api/production'
+import { nanoid } from 'nanoid'
+import type { PendingProduction } from '@/lib/schema'
 
-interface AcceptProductionDialogProps {
-  request: PendingProduction
+interface Props {
+  request: PendingProduction | null
   open: boolean
   onClose: () => void
-  onAccept: (batchId: string) => void
+  onAccept: (batchId: string) => Promise<void>
 }
 
-export function AcceptProductionDialog({
-  request,
-  open,
-  onClose,
-  onAccept,
-}: AcceptProductionDialogProps) {
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+export function AcceptProductionDialog({ request, open, onClose, onAccept }: Props) {
+  const [batchId, setBatchId] = useState('')
 
-  const handleAccept = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!request) return
+
     try {
-      setLoading(true)
-      console.log('Starting acceptance of production request:', request)
-
-      const result = await acceptMockProductionRequest(request.id)
-      console.log('Production request acceptance result:', result)
-
-      if (result.success) {
-        console.log('Production batch created:', result.batchId)
-        console.log('Pattern request created:', result.patternRequestId)
-
-        toast({
-          title: "Production Request Accepted",
-          description: `Created batch ${result.batchId} and pattern request ${result.patternRequestId}`,
-        })
-
-        onAccept(result.batchId!)
-      }
+      // Generate a batch ID if one wasn't provided
+      const finalBatchId = batchId || `BATCH-${nanoid(6)}`
+      await onAccept(finalBatchId)
     } catch (error) {
-      console.error('Failed to accept production request:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to accept production request",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-      onClose()
+      console.error('Failed to accept request:', error)
     }
   }
 
@@ -68,39 +41,41 @@ export function AcceptProductionDialog({
         <DialogHeader>
           <DialogTitle>Accept Production Request</DialogTitle>
           <DialogDescription>
-            Create a new production batch for {request.quantity}x {request.sku}
+            Create a new production batch for this request.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>SKU</Label>
-              <div className="font-mono mt-1">{request.sku}</div>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Request Details</Label>
+              <div className="text-sm">
+                <p>SKU: {request?.sku}</p>
+                <p>Quantity: {request?.quantity}</p>
+                <p>Priority: {request?.priority}</p>
+              </div>
             </div>
-            <div>
-              <Label>Quantity</Label>
-              <div className="font-medium mt-1">{request.quantity}</div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="batchId">Batch ID (optional)</Label>
+              <Input
+                id="batchId"
+                value={batchId}
+                onChange={(e) => setBatchId(e.target.value)}
+                placeholder="Leave empty to auto-generate"
+              />
             </div>
           </div>
 
-          {request.notes && (
-            <div>
-              <Label>Notes</Label>
-              <div className="text-sm mt-1">{request.notes}</div>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleAccept} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Accept Request
-          </Button>
-        </DialogFooter>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              Create Batch
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   )

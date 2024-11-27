@@ -45,4 +45,32 @@ export function validateRequest(data: unknown): Request {
 
 export function validateOrder(data: unknown): Order {
   return orderSchema.parse(data)
+}
+
+// ID format validation
+export const isValidItemId = (id: string) => {
+  // 5-character alphanumeric ID
+  return /^[0-9A-Z]{5}$/.test(id)
+}
+
+export const isValidRequestId = (id: string) => {
+  // Format: TYPE-XXXXX (e.g., WASH-A12B3)
+  return /^[A-Z]+-[0-9A-Z]{5}$/.test(id)
+}
+
+// URL validation
+export const isValidInventoryUrl = (url: string) => {
+  const match = url.match(/^\/inv\/([0-9A-Z]{5})$/)
+  return match ? isValidItemId(match[1]) : false
+}
+
+export const isValidRequestUrl = (url: string) => {
+  const match = url.match(/^\/requests\/([A-Z]+-[0-9A-Z]{5})$/)
+  return match ? isValidRequestId(match[1]) : false
+}
+
+// Navigation helper
+export const getIdFromUrl = (url: string) => {
+  const parts = url.split('/')
+  return parts[parts.length - 1]
 } 

@@ -1,257 +1,294 @@
-import { useEffect, useRef, useState } from 'react'
-import { Html5QrcodeScanner } from 'html5-qrcode'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/components/ui/use-toast"
-import { cn } from "@/lib/utils"
-import { findInventoryItemById } from '@/lib/mock/store'
-import { InventoryItemProfile } from '@/pages/InventoryItemProfile'
-import type { InventoryItem } from '@/lib/schema'
+import { useState } from 'react'
+import { PageLayout } from '@/components/PageLayout'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { QrCode, Box, MapPin } from 'lucide-react'
+import { batchUpdateByBin } from '@/lib/services/batch-updates'
+import { toast } from '@/components/ui/use-toast'
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Clock, AlertCircle, CheckCircle } from "lucide-react"
+
+type ScanMode = 'ITEM_SEARCH' | 'BIN_UPDATE' | 'ITEM_UPDATE'
+
+interface ScanConfig {
+  mode: ScanMode
+  updateType?: 'LOCATION' | 'STATUS1' | 'STATUS2'
+  value?: string
+}
 
 interface ScanResult {
+  id: string
   timestamp: string
-  code: string
-  type: 'INVENTORY' | 'BIN' | 'UNKNOWN'
-  item?: InventoryItem
+  value: string
+  mode: ScanMode
+  success: boolean
+  result?: string
+  error?: string
 }
 
 export function Scanner() {
+  const [config, setConfig] = useState<ScanConfig>({
+    mode: 'ITEM_SEARCH'
+  })
   const [scanning, setScanning] = useState(false)
-  const [results, setResults] = useState<ScanResult[]>([])
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null)
-  const scannerDivRef = useRef<HTMLDivElement>(null)
-  const { toast } = useToast()
+  const [lastScan, setLastScan] = useState<string | null>(null)
+  const [scanHistory, setScanHistory] = useState<ScanResult[]>([])
 
-  useEffect(() => {
-    // Initialize scanner when component mounts
-    if (scannerDivRef.current) {
-      scannerRef.current = new Html5QrcodeScanner(
-        "scanner",
-        { 
-          fps: 10,
-          qrbox: 250,
-          rememberLastUsedCamera: true,
-          showTorchButtonIfSupported: true,
-          aspectRatio: 1
-        },
-        false // Don't start scanning automatically
-      )
-    }
+  const handleScan = async (scannedValue: string) => {
+    try {
+      let result: string | undefined
+      let success = true
+      let error: string | undefined
 
-    // Cleanup on unmount
-    return () => {
-      if (scannerRef.current) {
-        try {
-          scannerRef.current.clear()
-        } catch (error) {
-          console.error('Error cleaning up scanner:', error)
-        }
+      switch (config.mode) {
+        case 'ITEM_SEARCH':
+          // Navigate to item details
+          // navigate(`/inv/${scannedValue}`)
+          result = 'Item found'
+          break
+
+        case 'BIN_UPDATE':
+          if (!config.updateType || !config.value) {
+            error = "Missing update configuration"
+            success = false
+            break
+          }
+
+          const updateResult = await batchUpdateByBin(
+            scannedValue,
+            {
+              [config.updateType.toLowerCase()]: config.value
+            },
+            'system'
+          )
+
+          result = `Updated ${updateResult.totalUpdated} items`
+          if (updateResult.errors.length > 0) {
+            error = `${updateResult.errors.length} items failed`
+            success = false
+          }
+          break
+
+        case 'ITEM_UPDATE':
+          // Handle individual item updates
+          break
       }
-    }
-  }, [])
 
-  const startScanning = () => {
-    if (!scannerRef.current) return
-
-    setScanning(true)
-    try {
-      scannerRef.current.render(onScanSuccess, onScanError)
-    } catch (error) {
-      console.error('Failed to start scanner:', error)
-      toast({
-        title: "Error",
-        description: "Failed to start scanner. Please try again.",
-        variant: "destructive"
-      })
-      setScanning(false)
-    }
-  }
-
-  const stopScanning = async () => {
-    if (!scannerRef.current) return
-
-    try {
-      await scannerRef.current.clear()
-      setScanning(false)
-    } catch (error) {
-      console.error('Failed to stop scanner:', error)
-      toast({
-        title: "Error",
-        description: "Failed to stop scanner. Please refresh the page.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const onScanSuccess = async (decodedText: string) => {
-    // Stop scanning immediately after successful scan
-    await stopScanning()
-
-    try {
-      // Find inventory item
-      const item = findInventoryItemById(decodedText)
-      
-      // Determine QR code type and create result
-      const newResult: ScanResult = {
+      // Add to scan history
+      setScanHistory(prev => [{
+        id: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
-        code: decodedText,
-        type: item ? 'INVENTORY' : 'UNKNOWN',
-        item
+        value: scannedValue,
+        mode: config.mode,
+        success,
+        result,
+        error
+      }, ...prev.slice(0, 49)]) // Keep last 50 scans
+
+      setLastScan(scannedValue)
+
+      if (!success) {
+        throw new Error(error)
       }
 
-      // Add to results
-      setResults(prev => [newResult, ...prev])
+      toast({
+        title: "Scan Successful",
+        description: result
+      })
 
-      // Show toast and open dashboard if item found
-      if (item) {
-        toast({
-          title: "Item Found",
-          description: `Found inventory item: ${item.sku}`,
-        })
-        setSelectedItemId(item.id!)
-      } else {
-        toast({
-          title: "Item Not Found",
-          description: "No inventory item found with this ID",
-          variant: "destructive"
-        })
-      }
     } catch (error) {
-      console.error('Error processing scan result:', error)
+      console.error('Scan error:', error)
       toast({
         title: "Error",
-        description: "Failed to process scan result",
+        description: error instanceof Error ? error.message : "Failed to process scan",
         variant: "destructive"
       })
     }
   }
 
-  const onScanError = (error: string | Error) => {
-    // Only log actual errors, not just failed scans
-    if (error !== 'No QR code found' && error.toString() !== 'No QR code found') {
-      console.error('QR Scan Error:', error)
+  // Simulate a scan for development
+  const simulateScan = () => {
+    const mockValues = {
+      'ITEM_SEARCH': 'ITEM-12345',
+      'BIN_UPDATE': 'BIN-1-Z1-0001',
+      'ITEM_UPDATE': 'ITEM-67890'
     }
-  }
-
-  const clearResults = () => {
-    setResults([])
-  }
-
-  const handleResultClick = (result: ScanResult) => {
-    if (result.item) {
-      setSelectedItemId(result.item.id!)
-    }
+    handleScan(mockValues[config.mode])
   }
 
   return (
-    <>
-      <div className="container mx-auto py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Scanner */}
+    <PageLayout title="Scanner">
+      <div className="container mx-auto p-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Scanner Configuration - Left Column */}
           <Card>
             <CardHeader>
-              <CardTitle>QR Code Scanner</CardTitle>
+              <CardTitle>Scanner Configuration</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div 
-                  id="scanner" 
-                  ref={scannerDivRef}
-                  className="rounded-lg overflow-hidden"
-                />
-                
-                <div className="flex justify-center gap-4">
-                  {!scanning ? (
-                    <Button onClick={startScanning}>
-                      Start Scanning
-                    </Button>
-                  ) : (
-                    <Button variant="destructive" onClick={stopScanning}>
-                      Stop Scanning
-                    </Button>
-                  )}
-                </div>
+            <CardContent className="space-y-6">
+              {/* Scan Mode Selection */}
+              <div className="space-y-2">
+                <Label>Scan Mode</Label>
+                <Select
+                  value={config.mode}
+                  onValueChange={(value: ScanMode) => setConfig({ mode: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select scan mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ITEM_SEARCH">
+                      <div className="flex items-center gap-2">
+                        <Box className="h-4 w-4" />
+                        <span>Item Search</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="BIN_UPDATE">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        <span>Bin Update</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* Update Configuration */}
+              {config.mode === 'BIN_UPDATE' && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Update Type</Label>
+                    <Select
+                      value={config.updateType}
+                      onValueChange={(value: 'LOCATION' | 'STATUS1' | 'STATUS2') => 
+                        setConfig(prev => ({ ...prev, updateType: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select what to update" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="LOCATION">Location</SelectItem>
+                        <SelectItem value="STATUS1">Status 1</SelectItem>
+                        <SelectItem value="STATUS2">Status 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Update Value</Label>
+                    {config.updateType === 'LOCATION' ? (
+                      <Select
+                        value={config.value}
+                        onValueChange={(value) => 
+                          setConfig(prev => ({ ...prev, value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="LAUNDRY">Laundry</SelectItem>
+                          <SelectItem value="QC-ZONE">QC Zone</SelectItem>
+                          <SelectItem value="FINISHING">Finishing</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input 
+                        placeholder="Enter value"
+                        value={config.value}
+                        onChange={(e) => 
+                          setConfig(prev => ({ ...prev, value: e.target.value }))
+                        }
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Scan Button */}
+              <div className="pt-4">
+                <Button 
+                  onClick={simulateScan}
+                  className="w-full"
+                  size="lg"
+                >
+                  <QrCode className="h-4 w-4 mr-2" />
+                  {scanning ? 'Scanning...' : 'Start Scan'}
+                </Button>
+              </div>
+
+              {/* Last Scan Result */}
+              {lastScan && (
+                <div className="pt-4 text-center text-sm text-muted-foreground">
+                  Last scan: {lastScan}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Results */}
+          {/* Scan History - Right Column */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Scan Results</CardTitle>
-              {results.length > 0 && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={clearResults}
-                >
-                  Clear
-                </Button>
-              )}
+            <CardHeader>
+              <CardTitle>Scan History</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {results.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">
-                    No scans yet
-                  </div>
-                ) : (
-                  results.map((result, index) => (
-                    <div 
-                      key={index}
-                      className={cn(
-                        "flex items-center justify-between p-3 bg-muted/50 rounded-lg",
-                        result.item && "cursor-pointer hover:bg-muted"
-                      )}
-                      onClick={() => handleResultClick(result)}
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge
-                            className={cn(
-                              result.type === 'INVENTORY' && "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-                              result.type === 'BIN' && "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                              result.type === 'UNKNOWN' && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+              <ScrollArea className="h-[500px] pr-4">
+                <div className="space-y-4">
+                  {scanHistory.map((scan) => (
+                    <Card key={scan.id} className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            {scan.success ? (
+                              <CheckCircle className="h-4 w-4 text-success" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-destructive" />
                             )}
-                          >
-                            {result.type}
-                          </Badge>
-                          <span className="font-mono text-sm">{result.code}</span>
-                        </div>
-                        {result.item && (
-                          <div className="text-sm text-muted-foreground">
-                            SKU: {result.item.sku}
+                            <span className="font-medium">{scan.value}</span>
                           </div>
-                        )}
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(result.timestamp).toLocaleTimeString()}
+                          <div className="text-sm text-muted-foreground">
+                            Mode: {scan.mode.replace('_', ' ')}
+                          </div>
+                          {scan.result && (
+                            <div className="text-sm text-success">
+                              {scan.result}
+                            </div>
+                          )}
+                          {scan.error && (
+                            <div className="text-sm text-destructive">
+                              {scan.error}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {new Date(scan.timestamp).toLocaleString()}
                         </div>
                       </div>
+                    </Card>
+                  ))}
+
+                  {scanHistory.length === 0 && (
+                    <div className="text-center text-muted-foreground py-8">
+                      No scans yet
                     </div>
-                  ))
-                )}
-              </div>
+                  )}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {selectedItemId && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-          <div className="container h-full py-4 overflow-auto">
-            <InventoryItemProfile itemId={selectedItemId} />
-            <Button
-              variant="outline"
-              className="fixed top-4 right-4"
-              onClick={() => setSelectedItemId(null)}
-            >
-              Close
-            </Button>
-          </div>
-        </div>
-      )}
-    </>
+    </PageLayout>
   )
 }

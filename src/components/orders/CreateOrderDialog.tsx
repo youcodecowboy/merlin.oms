@@ -12,7 +12,7 @@ import { createMockOrder } from '@/lib/mock-api/orders'
 import { CustomerSelect } from './CustomerSelect'
 import { ProductSelect } from './ProductSelect'
 import OrderSummary from './OrderSummary'
-import type { Customer } from '@/lib/schema'
+import type { Customer, Product } from '@/lib/schema'
 
 interface CreateOrderDialogProps {
   open: boolean
@@ -31,7 +31,7 @@ interface OrderItem {
   wash: string
   hem: 'SND' | 'RAW' | 'ORL' | 'HRL'
   quantity: number
-  baseInseam: number // Original inseam before hem adjustment
+  baseInseam: number
 }
 
 export function CreateOrderDialog({
@@ -43,50 +43,81 @@ export function CreateOrderDialog({
   const [currentStep, setCurrentStep] = useState<OrderStep>('customer')
   const { toast } = useToast()
 
-  // Order data
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
-  const [orderNumber, setOrderNumber] = useState<number | null>(null)
 
   const handleCustomerSelect = (customer: Customer) => {
     setSelectedCustomer(customer)
     setCurrentStep('product')
   }
 
-  const handleProductSelect = (item: OrderItem) => {
-    // Adjust inseam based on hem type
-    const hemAdjustments = {
-      'SND': 0,
-      'RAW': 0,
-      'ORL': 2,
-      'HRL': 4
-    }
-    
-    const adjustedItem = {
-      ...item,
-      baseInseam: item.inseam, // Store original inseam
-      inseam: item.inseam + hemAdjustments[item.hem]
+  const handleProductSelect = (product: Product) => {
+    if (!product?.sku) {
+      toast({
+        title: "Error",
+        description: "Invalid product selection - missing SKU",
+        variant: "destructive",
+      })
+      return
     }
 
-    setOrderItems(prev => [...prev, adjustedItem])
+    // Validate SKU format
+    const skuParts = product.sku.split('-')
+    if (skuParts.length !== 5) {
+      toast({
+        title: "Error",
+        description: "Invalid SKU format - must be style-waist-shape-inseam-wash",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const [style, waist, shape, inseam, wash] = skuParts
+    if (!style || !waist || !shape || !inseam || !wash) {
+      toast({
+        title: "Error",
+        description: "Invalid SKU format - missing components",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const orderItem: OrderItem = {
+      sku: product.sku,
+      style,
+      waist: parseInt(waist),
+      shape,
+      inseam: parseInt(inseam),
+      wash,
+      hem: 'SND',
+      quantity: 1,
+      baseInseam: parseInt(inseam)
+    }
+
+    setOrderItems(prev => [...prev, orderItem])
     setCurrentStep('summary')
   }
 
   const handleCreateOrder = async () => {
-    if (!selectedCustomer || orderItems.length === 0) return
+    if (!selectedCustomer?.id || orderItems.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select a customer and add items to the order",
+        variant: "destructive",
+      })
+      return
+    }
 
     try {
       setLoading(true)
-
-      // Create the order
       const order = await createMockOrder({
-        customer_id: selectedCustomer.id!,
-        customer: selectedCustomer,
-        items: orderItems.map(item => ({
-          ...item,
-          // Construct SKU with adjusted inseam
-          sku: `${item.style}-${item.waist}-${item.shape}-${item.inseam}-${item.wash}`
-        }))
+        customer_id: selectedCustomer.id,
+        customer: {
+          id: selectedCustomer.id,
+          name: selectedCustomer.name,
+          email: selectedCustomer.email
+        },
+        items: orderItems
       })
 
       toast({
@@ -108,16 +139,8 @@ export function CreateOrderDialog({
     }
   }
 
-  const handleClose = () => {
-    setCurrentStep('customer')
-    setSelectedCustomer(null)
-    setOrderItems([])
-    setOrderNumber(null)
-    onClose()
-  }
-
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>
@@ -138,7 +161,6 @@ export function CreateOrderDialog({
           {currentStep === 'product' && (
             <ProductSelect
               onSelect={handleProductSelect}
-              onBack={() => setCurrentStep('customer')}
             />
           )}
 

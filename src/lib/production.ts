@@ -1,22 +1,14 @@
 import { nanoid } from 'nanoid'
 import QRCode from 'qrcode'
 import { jsPDF } from 'jspdf'
+import type { InventoryItem } from './schema'
+import { addMockInventoryItems } from './mock-api/inventory'
 
 interface ProductionBatch {
   id: string
   sku: string
   quantity: number
   status: 'CREATED' | 'IN_PROGRESS' | 'COMPLETED'
-  created_at: string
-}
-
-interface InventoryItem {
-  id: string
-  sku: string
-  status1: 'PRODUCTION'
-  status2: 'UNCOMMITTED'
-  qr_code: string
-  batch_id: string
   created_at: string
 }
 
@@ -65,7 +57,7 @@ export async function generateInventoryItems({
     })
   }
 
-  // TODO: Save inventory items to your backend
+  await addMockInventoryItems(items)
   return items
 }
 

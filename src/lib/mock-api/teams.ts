@@ -1,121 +1,112 @@
-import type { Team, TeamMember } from '@/lib/schema'
+import { nanoid } from 'nanoid'
+import type { Team, TeamType, User } from '../schema/accounts'
 
-export const mockTeams: Team[] = [
-  {
-    id: 'team_warehouse',
-    name: 'Warehouse',
-    code: 'warehouse',
-    description: 'Handles stock pulls and inventory movement'
-  },
-  {
-    id: 'team_washing',
-    name: 'Washing',
-    code: 'washing',
-    description: 'Manages washing and processing'
-  },
-  {
-    id: 'team_quality',
-    name: 'Quality Control',
-    code: 'quality',
-    description: 'Performs quality checks and approvals'
-  },
-  {
-    id: 'team_pattern',
-    name: 'Pattern',
-    code: 'pattern',
-    description: 'Creates and manages patterns'
-  },
-  {
-    id: 'team_cutting',
-    name: 'Cutting',
-    code: 'cutting',
-    description: 'Handles fabric cutting'
-  },
-  {
-    id: 'team_production',
-    name: 'Production',
-    code: 'production',
-    description: 'Manages production workflow'
+// Storage keys
+const TEAMS_STORAGE_KEY = 'mockTeams'
+const USERS_STORAGE_KEY = 'mockUsers'
+
+// Load persisted data
+let mockTeams: Team[] = JSON.parse(localStorage.getItem(TEAMS_STORAGE_KEY) || '[]')
+let mockUsers: User[] = JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '[]')
+
+// Persist helpers
+const persistTeams = () => localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(mockTeams))
+const persistUsers = () => localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(mockUsers))
+
+// Team management
+export async function createTeam(data: Partial<Team>): Promise<Team> {
+  const team: Team = {
+    id: nanoid(),
+    name: data.name!,
+    type: data.type!,
+    description: data.description,
+    members: [],
+    active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    metadata: data.metadata || {}
   }
-]
+  
+  mockTeams.push(team)
+  persistTeams()
+  return team
+}
 
-export const mockTeamMembers: TeamMember[] = [
-  // Warehouse Team
-  {
-    id: 'user_w1',
-    name: 'Han Solo',
-    email: 'han.solo@denim.com',
-    team_id: 'team_warehouse',
-    role: 'LEAD'
-  },
-  {
-    id: 'user_w2',
-    name: 'Chewbacca',
-    email: 'chewie@denim.com',
-    team_id: 'team_warehouse',
-    role: 'MEMBER'
-  },
-
-  // Washing Team
-  {
-    id: 'user_wash1',
-    name: 'Lando Calrissian',
-    email: 'lando@denim.com',
-    team_id: 'team_washing',
-    role: 'LEAD'
-  },
-
-  // Quality Control Team
-  {
-    id: 'user_qc1',
-    name: 'Leia Organa',
-    email: 'leia@denim.com',
-    team_id: 'team_quality',
-    role: 'LEAD'
-  },
-
-  // Pattern Team
-  {
-    id: 'user_p1',
-    name: 'Obi-Wan Kenobi',
-    email: 'obi.wan@denim.com',
-    team_id: 'team_pattern',
-    role: 'LEAD'
-  },
-
-  // Cutting Team
-  {
-    id: 'user_c1',
-    name: 'Mace Windu',
-    email: 'mace@denim.com',
-    team_id: 'team_cutting',
-    role: 'LEAD'
-  },
-
-  // Production Team
-  {
-    id: 'user_prod1',
-    name: 'Luke Skywalker',
-    email: 'luke@denim.com',
-    team_id: 'team_production',
-    role: 'LEAD'
-  }
-]
-
-export async function getMockTeams(): Promise<Team[]> {
-  await new Promise(resolve => setTimeout(resolve, 500))
+export async function getTeams(): Promise<Team[]> {
   return mockTeams
 }
 
-export async function getMockTeamMembers(teamId?: string): Promise<TeamMember[]> {
-  await new Promise(resolve => setTimeout(resolve, 500))
-  if (teamId) {
-    return mockTeamMembers.filter(member => member.team_id === teamId)
+// User management
+export async function createUser(data: Partial<User>): Promise<User> {
+  const user: User = {
+    id: nanoid(),
+    email: data.email!,
+    name: data.name!,
+    role: data.role!,
+    team_id: data.team_id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    preferences: data.preferences || {}
   }
-  return mockTeamMembers
+
+  if (data.team_id) {
+    const team = mockTeams.find(t => t.id === data.team_id)
+    if (team) {
+      user.team = team
+      team.members.push(user)
+      persistTeams()
+    }
+  }
+
+  mockUsers.push(user)
+  persistUsers()
+  return user
 }
 
-export async function getMockTeamMember(id: string): Promise<TeamMember | undefined> {
-  await new Promise(resolve => setTimeout(resolve, 500))
-  return mockTeamMembers.find(member => member.id === id)
+export async function getUsers(): Promise<User[]> {
+  return mockUsers
+}
+
+// Assignment helpers
+export async function assignRequestToTeam(requestId: string, teamId: string, assignedBy: string): Promise<void> {
+  const team = mockTeams.find(t => t.id === teamId)
+  if (!team) throw new Error('Team not found')
+  
+  // Assignment logic here
+  // This would create an Assignment record and update the request
+}
+
+// Initialize with some default data if empty
+export async function initializeTeamsAndUsers() {
+  if (mockTeams.length === 0) {
+    // Create default teams
+    const washTeam = await createTeam({
+      name: 'Wash Team A',
+      type: 'WASH',
+      description: 'Main washing team',
+      metadata: { location: 'WASH-ZONE-1', shift: 'DAY' }
+    })
+
+    const qcTeam = await createTeam({
+      name: 'QC Team A',
+      type: 'QC',
+      description: 'Quality control team',
+      metadata: { location: 'QC-ZONE-1', shift: 'DAY' }
+    })
+
+    // Create some default users
+    await createUser({
+      email: 'wash.lead@example.com',
+      name: 'John Smith',
+      role: 'TEAM_LEAD',
+      team_id: washTeam.id
+    })
+
+    await createUser({
+      email: 'qc.lead@example.com',
+      name: 'Jane Doe',
+      role: 'TEAM_LEAD',
+      team_id: qcTeam.id
+    })
+  }
 } 
