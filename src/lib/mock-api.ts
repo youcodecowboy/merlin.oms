@@ -24,24 +24,33 @@ import { getMockInventoryItems, createMockInventoryItem, updateMockInventoryItem
 
 export async function handleInventoryQRScan(qrData: string): Promise<InventoryItem> {
   try {
-    // Parse the QR data
     const scannedItem = JSON.parse(qrData) as InventoryItem
     
-    // Check if item already exists
-    const existingItems = await getMockInventoryItems()
-    const existingItem = existingItems.find(item => item.id === scannedItem.id)
-    
-    if (existingItem) {
-      // Update existing item
-      return updateMockInventoryItem(scannedItem)
+    // Log QR scan event
+    await eventLogger.logQREvent({
+      unitId: scannedItem.id,
+      eventType: 'activation',
+      location: scannedItem.location,
+      operatorId: getCurrentOperator(), // Need to implement
+      resultingAction: determineNextAction(scannedItem) // Need to implement
+    })
+
+    // Check waitlist and determine action
+    const hasWaitlistedOrders = await checkWaitlist(scannedItem.sku)
+    if (hasWaitlistedOrders) {
+      return handleWaitlistedItem(scannedItem)
     } else {
-      // Create new item
-      return createMockInventoryItem(scannedItem)
+      return handleStorageItem(scannedItem)
     }
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      throw new Error(`Invalid QR code data: ${error.message}`)
-    }
-    throw new Error('Invalid QR code data: Unknown error')
+  } catch (error) {
+    // Log error event
+    await eventLogger.logEvent({
+      event_type: 'QR_SCAN_ERROR',
+      event_id: crypto.randomUUID(),
+      timestamp: new Date(),
+      actor_id: 'system',
+      metadata: { error: error.message }
+    })
+    throw error
   }
 }

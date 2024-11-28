@@ -22,15 +22,22 @@ export function generateUniqueInventoryId(existingIds: string[]): string {
   return id
 }
 
+/**
+ * Generates a unique bin ID in the format: XXX-CAP-ZONE-SHELF-RACK
+ * Example: 123-025-STA-1-A
+ */
 export function generateUniqueBinId(
   capacity: number,
   zone: string,
   shelf: string,
   rack: string
 ): string {
-  // Generate a unique 3-digit number
+  // Generate a random 3-digit number
   const uniqueNum = Math.floor(Math.random() * 900) + 100
   
-  // Format: 123-100-1-1-A
-  return `${uniqueNum}-${capacity}-${zone}-${shelf}-${rack}`
+  // Pad capacity to 3 digits
+  const paddedCapacity = capacity.toString().padStart(3, '0')
+  
+  // Format: 123-025-STA-1-A
+  return `${uniqueNum}-${paddedCapacity}-${zone}-${shelf}-${rack}`
 } 

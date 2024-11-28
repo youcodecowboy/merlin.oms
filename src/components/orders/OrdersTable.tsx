@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Table,
   TableBody,
@@ -7,17 +9,21 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { OrderLink } from './OrderLink'
-import type { DBOrder } from '@/lib/schema/database'
+import { Button } from "@/components/ui/button"
+import { mockDB } from '@/lib/mock-db/store'
+import { formatDate } from '@/lib/utils/date'
 
-interface OrdersTableProps {
-  data: DBOrder[]
-  loading?: boolean
-}
+export function OrdersTable() {
+  const navigate = useNavigate()
+  const [orders, setOrders] = useState(mockDB.orders || [])
 
-export function OrdersTable({ data = [], loading }: OrdersTableProps) {
-  if (loading) {
-    return <div>Loading...</div>
+  // Refresh orders when mockDB changes
+  useEffect(() => {
+    setOrders(mockDB.orders || [])
+  }, [mockDB.orders])
+
+  const handleViewOrder = (orderNumber: string) => {
+    navigate(`/orders/${orderNumber}`)
   }
 
   return (
@@ -25,27 +31,55 @@ export function OrdersTable({ data = [], loading }: OrdersTableProps) {
       <TableHeader>
         <TableRow>
           <TableHead>Order #</TableHead>
-          <TableHead>Status</TableHead>
           <TableHead>Customer</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Items</TableHead>
           <TableHead>Created</TableHead>
+          <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((order) => (
-          <TableRow key={order.id}>
-            <TableCell>
-              <OrderLink order={order} />
-            </TableCell>
-            <TableCell>
-              <Badge>{order.status}</Badge>
-            </TableCell>
-            <TableCell>{order.customer_name}</TableCell>
-            <TableCell>{new Date(order.created_at).toLocaleString()}</TableCell>
-          </TableRow>
-        ))}
-        {data.length === 0 && (
+        {orders.length > 0 ? (
+          orders.map((order) => {
+            const orderItems = mockDB.order_items?.filter(item => item.order_id === order.id) || []
+            
+            return (
+              <TableRow 
+                key={order.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleViewOrder(order.number)}
+              >
+                <TableCell className="font-mono">{order.number}</TableCell>
+                <TableCell>{order.customer_name}</TableCell>
+                <TableCell>
+                  <Badge variant={
+                    order.status === 'PRODUCTION' ? 'destructive' :
+                    order.status === 'PROCESSING' ? 'default' :
+                    'secondary'
+                  }>
+                    {order.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>{orderItems.length} items</TableCell>
+                <TableCell>{formatDate(order.created_at)}</TableCell>
+                <TableCell>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleViewOrder(order.number)
+                    }}
+                  >
+                    View Details
+                  </Button>
+                </TableCell>
+              </TableRow>
+            )
+          })
+        ) : (
           <TableRow>
-            <TableCell colSpan={4} className="text-center py-4">
+            <TableCell colSpan={6} className="text-center py-4">
               No orders found
             </TableCell>
           </TableRow>

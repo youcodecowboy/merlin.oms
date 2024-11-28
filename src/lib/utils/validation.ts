@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { Request, Order, InventoryItem } from '../schema'
+import type { Status1, Status2 } from '../types'
 
 export const requestSchema = z.object({
   request_name: z.string().min(1),
@@ -73,4 +74,97 @@ export const isValidRequestUrl = (url: string) => {
 export const getIdFromUrl = (url: string) => {
   const parts = url.split('/')
   return parts[parts.length - 1]
+}
+
+// Status1 transition map
+const validStatus1Transitions: Record<Status1, Status1[]> = {
+  'PRODUCTION': ['STOCK'],
+  'STOCK': ['WASH', 'PRODUCTION'],
+  'WASH': ['QC'],
+  'QC': ['FINISHING', 'WASH'], // Can go back to wash if QC fails
+  'FINISHING': ['PACKED'],
+  'PACKED': []
+}
+
+// Status2 transition map
+const validStatus2Transitions: Record<Status2, Status2[]> = {
+  'UNCOMMITTED': ['COMMITTED', 'ASSIGNED'],
+  'COMMITTED': ['ASSIGNED', 'UNCOMMITTED'],
+  'ASSIGNED': ['UNCOMMITTED'] // Can be unassigned if order cancelled
+}
+
+// Status1 validation
+export function validateStatus1Transition(current: Status1, next: Status1): boolean {
+  const validNextStates = validStatus1Transitions[current]
+  if (!validNextStates) {
+    throw new Error(`Invalid current status: ${current}`)
+  }
+  if (!validNextStates.includes(next)) {
+    throw new Error(`Invalid transition from ${current} to ${next}. Valid transitions are: ${validNextStates.join(', ')}`)
+  }
+  return true
+}
+
+// Status2 validation
+export function validateStatus2Transition(current: Status2, next: Status2): boolean {
+  const validNextStates = validStatus2Transitions[current]
+  if (!validNextStates) {
+    throw new Error(`Invalid current status: ${current}`)
+  }
+  if (!validNextStates.includes(next)) {
+    throw new Error(`Invalid transition from ${current} to ${next}. Valid transitions are: ${validNextStates.join(', ')}`)
+  }
+  return true
+}
+
+// Export validation maps for testing
+export const __testing = {
+  validStatus1Transitions,
+  validStatus2Transitions
+}
+
+// Export type guards
+export function isStatus1(status: string): status is Status1 {
+  return ['PRODUCTION', 'STOCK', 'WASH', 'QC', 'FINISHING', 'PACKED'].includes(status)
+}
+
+export function isStatus2(status: string): status is Status2 {
+  return ['UNCOMMITTED', 'COMMITTED', 'ASSIGNED'].includes(status)
+}
+
+// Export validation checker
+export function validateExports() {
+  const exports = {
+    validateStatus1Transition,
+    validateStatus2Transition,
+    isStatus1,
+    isStatus2,
+    requestSchema,
+    orderSchema,
+    __testing
+  }
+
+  const requiredExports = [
+    'validateStatus1Transition',
+    'validateStatus2Transition',
+    'isStatus1',
+    'isStatus2'
+  ]
+
+  const missingExports = requiredExports.filter(
+    exp => !(exp in exports)
+  )
+
+  if (missingExports.length > 0) {
+    throw new Error(`Missing required exports in validation.ts: ${missingExports.join(', ')}`)
+  }
+}
+
+// Run validation check in development only
+if (process.env.NODE_ENV === 'development') {
+  try {
+    validateExports()
+  } catch (error) {
+    console.error('Export validation failed:', error)
+  }
 } 

@@ -9,8 +9,10 @@ import { PageLayout } from '@/components/PageLayout'
 import { Button } from '@/components/ui/button'
 import { useToast } from "@/components/ui/use-toast"
 import { Plus } from 'lucide-react'
-import { mockDB } from '@/lib/mock-db/store'
-import { validateBinAvailability } from '@/lib/utils/validators'
+import { validateBinAvailability } from '@/lib/utils/bin-validation'
+import { eventLogger } from '@/lib/utils/logging'
+import { mockDB } from '@/lib/mock-db'
+import type { Bin, InventoryItem } from '@/lib/types'
 
 export function Inventory() {
   const navigate = useNavigate()
@@ -18,26 +20,53 @@ export function Inventory() {
   const [activeTab, setActiveTab] = useState('items')
   const [showCreateItemDialog, setShowCreateItemDialog] = useState(false)
   const [showCreateBinDialog, setShowCreateBinDialog] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleCreateClick = () => {
+  const handleCreateClick = async () => {
     if (activeTab === 'items') {
-      const validation = validateBinAvailability(mockDB.bins || [])
-      if (!validation.valid) {
+      setLoading(true)
+      try {
+        const validation = await validateBinAvailability(mockDB.bins || [])
+        if (!validation.valid) {
+          toast({
+            variant: "destructive",
+            title: "Cannot Create Item",
+            description: validation.error
+          })
+          return
+        }
+        setShowCreateItemDialog(true)
+      } catch (error) {
+        console.error('Bin validation failed:', error)
         toast({
           variant: "destructive",
-          title: "Cannot Create Item",
-          description: validation.error
+          title: "System Error",
+          description: "Failed to validate bin availability"
         })
-        return
+      } finally {
+        setLoading(false)
       }
-      setShowCreateItemDialog(true)
     } else {
       setShowCreateBinDialog(true)
     }
   }
 
-  const handleViewBin = (bin: Bin) => {
-    navigate(`/bins/${bin.id}`)
+  const handleViewBin = async (bin: Bin) => {
+    try {
+      await eventLogger.logEvent({
+        event_type: 'BIN_UPDATE',
+        event_id: crypto.randomUUID(),
+        timestamp: new Date(),
+        actor_id: 'system',
+        metadata: {
+          action: 'view',
+          bin_id: bin.id
+        }
+      })
+      navigate(`/bins/${bin.id}`)
+    } catch (error) {
+      console.error('Failed to log bin view:', error)
+    }
   }
 
   return (
@@ -48,7 +77,10 @@ export function Inventory() {
             <TabsTrigger value="items">Items</TabsTrigger>
             <TabsTrigger value="bins">Bins</TabsTrigger>
           </TabsList>
-          <Button onClick={handleCreateClick}>
+          <Button 
+            onClick={handleCreateClick}
+            disabled={loading}
+          >
             <Plus className="h-4 w-4 mr-2" />
             {activeTab === 'items' ? 'Create Item' : 'Create Bin'}
           </Button>

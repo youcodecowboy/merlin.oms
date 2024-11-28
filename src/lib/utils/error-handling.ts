@@ -2,16 +2,16 @@ import { ApiError } from '../api-types'
 
 export class AppError extends Error {
   constructor(
+    public code: string,
     message: string,
-    public code?: string,
-    public details?: unknown
+    public metadata?: Record<string, any>
   ) {
     super(message)
     this.name = 'AppError'
   }
 
   static fromApiError(error: ApiError): AppError {
-    return new AppError(error.message, error.code, error.details)
+    return new AppError(error.code, error.message, error.metadata)
   }
 
   static isAppError(error: unknown): error is AppError {
@@ -19,14 +19,18 @@ export class AppError extends Error {
   }
 }
 
-export function handleError(error: unknown): AppError {
-  if (AppError.isAppError(error)) {
-    return error
+export const errorHandler = {
+  handle(error: unknown, context: string) {
+    // Log error
+    console.error(`Error in ${context}:`, error)
+    
+    // Create standardized error
+    const appError = error instanceof AppError ? error : 
+      new AppError('UNKNOWN_ERROR', 'An unexpected error occurred')
+    
+    // Log to monitoring
+    logError(appError)
+    
+    return appError
   }
-  
-  if (error instanceof Error) {
-    return new AppError(error.message)
-  }
-  
-  return new AppError('An unknown error occurred')
 } 

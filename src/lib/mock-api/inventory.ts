@@ -1,263 +1,238 @@
 import { nanoid } from 'nanoid'
-import type { InventoryItem, TimelineStage, Order } from '../schema'
-import { createItemId } from '@/lib/utils/id'
-import { createMockInventoryEvent } from './events'
-import { updateMockOrder, getMockOrder } from './orders'
-import { createMockRequest } from './requests'
-import { eventTracker } from '@/lib/services/event-tracking'
-import { 
-  trackInventoryCreation,
-  trackInventoryStatusChange,
-  trackInventoryLocationChange,
-  trackInventoryCommitment
-} from '@/lib/services/inventory-tracking'
+import type { InventoryItem, SKU, Status1, Status2 } from '../types'
+import { mockDB, createEvent } from '../mock-db/store'
+import { validateStatus1Transition, validateStatus2Transition } from '../utils/validation'
 
 // Initialize inventory storage
 const STORAGE_KEY = 'mockInventoryItems'
 
-// Load persisted data or use defaults
-const loadPersistedData = () => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch (error) {
-    console.error('Failed to load inventory:', error)
-    return []
-  }
+interface CreateInventoryParams {
+  sku: SKU
+  status1?: Status1
+  status2?: Status2
+  location?: string
+  batch_id?: string
+  production_date?: string
+  metadata?: Record<string, any>
 }
 
-// Initialize with persisted data
-let mockInventoryItems: InventoryItem[] = loadPersistedData()
-
-// Helper to save to localStorage
-function persistInventory() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(mockInventoryItems))
-  } catch (error) {
-    console.error('Failed to persist inventory:', error)
-  }
-}
-
-const DEFAULT_TIMELINE: TimelineStage[] = [
-  { 
-    stage: 'PATTERN', 
-    status: 'PENDING'
-  },
-  { 
-    stage: 'CUTTING', 
-    status: 'PENDING'
-  },
-  { 
-    stage: 'SEWING', 
-    status: 'PENDING'
-  },
-  { 
-    stage: 'WASHING', 
-    status: 'PENDING'
-  },
-  { 
-    stage: 'QC', 
-    status: 'PENDING'
-  },
-  { 
-    stage: 'FINISHING', 
-    status: 'PENDING'
-  },
-  { 
-    stage: 'PACKING', 
-    status: 'PENDING'
-  }
-]
-
-export async function getMockInventoryItems(): Promise<InventoryItem[]> {
-  return mockInventoryItems
-}
-
-export async function createMockInventoryItem(data: Partial<InventoryItem>): Promise<InventoryItem> {
+export async function createMockInventoryItem(params: CreateInventoryParams): Promise<InventoryItem> {
   const item: InventoryItem = {
-    id: createItemId(),
-    sku: data.sku!,
-    status1: data.status1 || 'STOCK',
-    status2: data.status2 || 'UNCOMMITTED',
-    batch_id: data.batch_id || 'manual inventory',
-    location: data.location || '',
-    production_date: data.production_date || new Date().toISOString(),
-    production_batch: data.production_batch || '',
-    active_stage: data.active_stage || '',
-    timeline: data.timeline || [...DEFAULT_TIMELINE],
+    id: `INV-${nanoid(6)}`,
+    sku: params.sku,
+    status1: params.status1 || 'STOCK',
+    status2: params.status2 || 'UNCOMMITTED',
+    location: params.location || '',
+    batch_id: params.batch_id,
+    production_date: params.production_date || new Date().toISOString(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
 
-  // Track creation event
-  await trackInventoryCreation(item)
+  // Log creation event
+  await createEvent({
+    event_type: 'INVENTORY_CREATED',
+    timestamp: new Date(),
+    actor_id: 'system',
+    metadata: {
+      item_id: item.id,
+      sku: item.sku,
+      initial_status1: item.status1,
+      initial_status2: item.status2,
+      location: item.location
+    }
+  })
 
-  mockInventoryItems.push(item)
-  persistInventory()
-
+  mockDB.inventory_items.push(item)
   return item
+}
+
+interface UpdateInventoryParams {
+  status1?: Status1
+  status2?: Status2
+  location?: string
+  order_id?: string
+  metadata?: Record<string, any>
 }
 
 export async function updateMockInventoryItem(
   itemId: string,
-  updates: Partial<InventoryItem>,
-  reason?: string
+  updates: UpdateInventoryParams
 ): Promise<InventoryItem> {
-  const oldItem = mockInventoryItems.find(i => i.id === itemId)
-  if (!oldItem) throw new Error('Item not found')
+  const item = mockDB.inventory_items.find(i => i.id === itemId)
+  if (!item) throw new Error('Item not found')
 
-  const updatedItem = { ...oldItem, ...updates, updated_at: new Date().toISOString() }
-
-  // Track status changes
-  if (oldItem.status1 !== updatedItem.status1 || oldItem.status2 !== updatedItem.status2) {
-    await trackInventoryStatusChange(
-      updatedItem,
-      oldItem.status1,
-      oldItem.status2,
-      reason
-    )
+  // Validate status transitions
+  if (updates.status1) {
+    validateStatus1Transition(item.status1, updates.status1)
+  }
+  if (updates.status2) {
+    validateStatus2Transition(item.status2, updates.status2)
   }
 
-  // Track location changes
-  if (oldItem.location !== updatedItem.location) {
-    await trackInventoryLocationChange(
-      updatedItem,
-      oldItem.location || '',
-      reason
-    )
+  const oldItem = { ...item }
+
+  // Update item
+  const updatedItem = {
+    ...item,
+    ...updates,
+    updated_at: new Date().toISOString()
   }
 
-  mockInventoryItems = mockInventoryItems.map(item =>
-    item.id === itemId ? updatedItem : item
+  // Log status changes
+  if (updates.status1 || updates.status2) {
+    await createEvent({
+      event_type: 'STATUS_CHANGE',
+      timestamp: new Date(),
+      actor_id: 'system',
+      metadata: {
+        item_id: item.id,
+        previous_status1: oldItem.status1,
+        new_status1: updates.status1 || oldItem.status1,
+        previous_status2: oldItem.status2,
+        new_status2: updates.status2 || oldItem.status2,
+        order_id: updates.order_id
+      }
+    })
+  }
+
+  // Log location changes
+  if (updates.location && updates.location !== item.location) {
+    await createEvent({
+      event_type: 'LOCATION_CHANGE',
+      timestamp: new Date(),
+      actor_id: 'system',
+      metadata: {
+        item_id: item.id,
+        previous_location: item.location,
+        new_location: updates.location,
+        reason: updates.metadata?.locationChangeReason
+      }
+    })
+  }
+
+  // Update in storage
+  mockDB.inventory_items = mockDB.inventory_items.map(i =>
+    i.id === itemId ? updatedItem : i
   )
-  persistInventory()
 
   return updatedItem
 }
 
-// Add this new function for committing inventory to orders
-export async function commitInventoryToOrder(
-  item: InventoryItem,
-  orderId: string
-): Promise<InventoryItem> {
-  console.log('Committing inventory to order:', { item, orderId })
+export async function getMockInventoryItems(filters?: {
+  status1?: Status1
+  status2?: Status2
+  location?: string
+  sku?: SKU
+}): Promise<InventoryItem[]> {
+  let items = mockDB.inventory_items
 
-  // Get order first to include in events
-  const order = await getMockOrder(orderId)
-  if (!order) {
-    throw new Error(`Order not found: ${orderId}`)
+  if (filters) {
+    items = items.filter(item => {
+      return Object.entries(filters).every(([key, value]) => 
+        !value || item[key as keyof InventoryItem] === value
+      )
+    })
   }
 
-  // Update item status based on its current status1
-  const newStatus2 = item.status1 === 'STOCK' ? 'ASSIGNED' : 'COMMITTED'
-  
-  const updatedItem = await updateMockInventoryItem({
-    ...item,
-    status2: newStatus2,
-    order_id: orderId,
-    updated_at: new Date().toISOString()
-  })
+  return items
+}
 
-  // Create commit event with detailed information
-  await createMockInventoryEvent({
-    inventory_item_id: item.id,
-    event_name: 'COMMITTED_TO_ORDER',
-    event_description: `Item committed to order #${order.number}`,
-    status: 'COMPLETED',
-    timestamp: new Date().toISOString(),
+export async function findMatchingInventory(params: {
+  sku: SKU
+  type: 'exact' | 'universal'
+  status2?: Status2
+}): Promise<InventoryItem[]> {
+  const { sku, type, status2 } = params
+  const [style, waist, shape, length, wash] = sku.split('-')
+
+  let matches = mockDB.inventory_items
+
+  // Filter by status2 if provided
+  if (status2) {
+    matches = matches.filter(item => item.status2 === status2)
+  }
+
+  if (type === 'exact') {
+    // Exact match - all components must match exactly
+    matches = matches.filter(item => item.sku === sku)
+  } else {
+    // Universal match - follow wash group rules and length requirements
+    matches = matches.filter(item => {
+      const [itemStyle, itemWaist, itemShape, itemLength, itemWash] = item.sku.split('-')
+      
+      // Style, waist, and shape must match exactly
+      if (itemStyle !== style || itemWaist !== waist || itemShape !== shape) {
+        return false
+      }
+
+      // Item length must be >= target length
+      if (parseInt(itemLength) < parseInt(length)) {
+        return false
+      }
+
+      // Check wash group compatibility
+      if (['STA', 'IND'].includes(wash)) {
+        return itemWash === 'RAW'
+      }
+      if (['ONX', 'JAG'].includes(wash)) {
+        return itemWash === 'BRW'
+      }
+
+      return false
+    })
+  }
+
+  // Log search event
+  await createEvent({
+    event_type: 'SKU_SEARCH',
+    timestamp: new Date(),
+    actor_id: 'system',
     metadata: {
-      order_id: orderId,
-      order_number: order.number,
-      previous_status: item.status2,
-      new_status: newStatus2,
-      item_status1: item.status1,
-      item_location: item.location,
-      customer_name: order.customer.name
+      search_sku: sku,
+      search_type: type,
+      status2,
+      matches_found: matches.length,
+      matching_skus: matches.map(m => m.sku)
     }
   })
 
-  // Update order item status and create wash request if needed
-  await updateMockOrder(orderId, (order) => ({
-    items: order.items.map(orderItem => {
-      if (orderItem.sku === item.sku && orderItem.status === 'PENDING') {
-        // Create events array if it doesn't exist
-        const events = orderItem.events || []
-        
-        // Add commitment event
-        events.push({
-          id: nanoid(),
-          order_item_id: orderItem.id || nanoid(),
-          event_type: 'INVENTORY_COMMITTED',
-          description: `Inventory item ${item.id} committed from ${item.status1}`,
-          timestamp: new Date().toISOString(),
-          metadata: {
-            inventory_item_id: item.id,
-            previous_status: orderItem.status,
-            new_status: item.status1 === 'STOCK' ? 'PENDING_WASH' : 'COMMITTED',
-            inventory_status1: item.status1,
-            inventory_location: item.location
-          }
-        })
+  return matches
+}
 
-        // Create wash request only for STOCK items that are now ASSIGNED
-        if (item.status1 === 'STOCK') {
-          createMockRequest({
-            request_type: 'WASH_REQUEST',
-            status: 'PENDING',
-            priority: 'MEDIUM',
-            inventory_item: updatedItem,
-            metadata: {
-              target_wash: orderItem.wash,
-              order_id: orderId,
-              order_number: order.number,
-              notes: `Wash request for order #${order.number}`
-            }
-          }).then(request => {
-            // Add wash request event to both order item and inventory item
-            const washEvent = {
-              id: nanoid(),
-              event_type: 'WASH_REQUEST_CREATED',
-              description: `Wash request ${request.id} created for target wash: ${orderItem.wash}`,
-              timestamp: new Date().toISOString(),
-              metadata: {
-                request_id: request.id,
-                target_wash: orderItem.wash,
-                order_number: order.number,
-                inventory_item_id: item.id
-              }
-            }
+export async function commitInventoryToOrder(
+  itemId: string,
+  orderId: string
+): Promise<InventoryItem> {
+  const item = mockDB.inventory_items.find(i => i.id === itemId)
+  if (!item) throw new Error('Item not found')
 
-            // Add to order item events
-            events.push({
-              ...washEvent,
-              order_item_id: orderItem.id || nanoid()
-            })
+  // Validate item can be committed
+  if (item.status2 !== 'UNCOMMITTED') {
+    throw new Error(`Item ${itemId} cannot be committed - current status: ${item.status2}`)
+  }
 
-            // Add to inventory item events
-            createMockInventoryEvent({
-              inventory_item_id: item.id,
-              event_name: 'WASH_REQUEST_CREATED',
-              event_description: washEvent.description,
-              status: 'COMPLETED',
-              timestamp: washEvent.timestamp,
-              metadata: washEvent.metadata
-            })
-          })
-        }
+  // Update item
+  const updatedItem = await updateMockInventoryItem(itemId, {
+    status2: 'COMMITTED',
+    order_id: orderId,
+    metadata: {
+      commitment_time: new Date().toISOString()
+    }
+  })
 
-        return {
-          ...orderItem,
-          status: item.status1 === 'STOCK' ? 'PENDING_WASH' : 'COMMITTED',
-          inventory_item: updatedItem,
-          events
-        }
-      }
-      return orderItem
-    })
-  }))
+  // Log commitment
+  await createEvent({
+    event_type: 'INVENTORY_COMMITTED',
+    timestamp: new Date(),
+    actor_id: 'system',
+    metadata: {
+      item_id: itemId,
+      order_id: orderId,
+      previous_status: item.status2,
+      new_status: 'COMMITTED'
+    }
+  })
 
   return updatedItem
 }
-
-// Export for testing
-export { mockInventoryItems }

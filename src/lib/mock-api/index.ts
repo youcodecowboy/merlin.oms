@@ -1,62 +1,58 @@
-// Re-export all mock API functions
+// Core exports
+export * from './inventory'
+export * from './orders'
+export * from './requests'
+export * from './locations'
+export * from './events'
+export * from './production'
+export * from './customers'
+
+// Types
+export type {
+  Order,
+  InventoryItem,
+  Request,
+  Location,
+  Customer,
+  Event,
+  Production
+} from '../types'
+
+// Export QR handling function
+export { handleInventoryQRScan } from './qr-handling'
+
 export {
+  createMockInventoryItem,
+  updateMockInventoryItem,
   getMockInventoryItems,
-  getMockInventoryEvents,
-  addMockInventoryItems,
-  updateMockInventoryItem
+  findMatchingInventory,
+  commitInventoryToOrder
 } from './inventory'
 
 export {
-  getMockProducts,
-  getMockProductBySKU
-} from './products'
+  createMockRequest,
+  createMockPatternRequest,
+  getMockRequests,
+  createRequest,
+  updateRequestSteps,
+  getRequestById,
+  handleRequestCompletion
+} from './requests'
 
 export {
-  getMockOrders,
-  createMockOrder
-} from './orders'
-
-export {
-  getMockCustomers,
-  createMockCustomer
-} from './customers'
-
-export {
-  getMockPendingProduction,
-  getMockActiveProduction,
-  createMockPendingProduction,
-  acceptMockProductionRequest,
-  moveToNextMockStage,
-  updateMockPendingProduction
+  createMockRequest as createMockProductionRequest,
+  createProductionRequest,
+  updateProductionStatus,
+  getProductionQueue,
+  handleProductionCompletion
 } from './production'
 
 export {
-  getMockBatches,
-  getMockBatchDetails,
-  updateMockBatchStatus
-} from './batches'
-
-export {
-  getMockEvents,
-  createMockEvent
-} from './events'
-
-export {
-  getMockRequests,
-  createMockRequest,
-  updateMockRequest
-} from './requests'
-
-// Export types
-export type { 
-  Order,
-  Product,
-  Customer,
-  InventoryItem,
-  InventoryEvent,
-  PendingProduction,
-  ProductionRequest,
-  Batch,
-  Event,
-  Request
-} from '../schema'
+  createMockOrder,
+  getMockOrder,
+  updateOrderStatus,
+  getOrderById,
+  processOrder,
+  handleStockAssignment,
+  handleProductionWaitlist
+} from './orders'

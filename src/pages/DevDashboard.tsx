@@ -1,9 +1,17 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { createInventoryItem, createTestWashRequest, createHanSoloOrder, createRandomOrder, resetMockData } from "@/lib/mock-db/store"
+import { 
+  createInventoryItem, 
+  createTestWashRequest, 
+  createHanSoloOrder, 
+  createRandomOrder,
+  createRandomInventoryItem,
+  createTestQCRequest,
+  resetMockData
+} from "@/lib/mock-db/store"
 import { useToast } from "@/components/ui/use-toast"
 import { useNavigate } from "react-router-dom"
-import { Trash2, Package, Loader2, User, Shuffle } from "lucide-react"
+import { Trash2, Package, Loader2, User, Shuffle, Plus, ShieldCheck } from "lucide-react"
 
 export function DevDashboard() {
   const { toast } = useToast()
@@ -59,12 +67,29 @@ export function DevDashboard() {
     }
   }
 
+  const handleCreateRandomInventoryItem = () => {
+    try {
+      const item = createRandomInventoryItem()
+      toast({
+        title: "Inventory Item Created",
+        description: `Created item ${item.id} with SKU ${item.current_sku}`,
+      })
+      navigate('/inv')
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create inventory item"
+      })
+    }
+  }
+
   const handleCreateRandomOrder = () => {
     try {
-      const { customer, order, item } = createRandomOrder()
+      const { order, customer, matchedItem } = createRandomOrder()
       toast({
         title: "Random Order Created",
-        description: `Created order ${order.number} for ${customer.name}`,
+        description: `Created order ${order.number} for ${customer.name} (${matchedItem ? 'Matched to inventory' : 'Production needed'})`,
       })
       navigate('/orders')
     } catch (error) {
@@ -76,6 +101,23 @@ export function DevDashboard() {
     }
   }
 
+  const handleCreateTestQCRequest = () => {
+    try {
+      const request = createTestQCRequest()
+      toast({
+        title: "QC Request Created",
+        description: `Created QC request for item ${request.item_id}`,
+      })
+      navigate('/qc')
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create QC request"
+      })
+    }
+  }
+
   const handleCleanup = () => {
     try {
       resetMockData()
@@ -83,13 +125,13 @@ export function DevDashboard() {
         title: "Data Cleaned Up",
         description: "All mock data has been reset to initial state"
       })
-      // Optionally refresh the current page
+      // Refresh the page to show clean state
       window.location.reload()
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to clean up mock data"
+        description: "Failed to clean up data"
       })
     }
   }
@@ -116,13 +158,22 @@ export function DevDashboard() {
           <CardContent className="space-y-4">
             <div>
               <h3 className="font-medium mb-2">Inventory Items</h3>
-              <Button 
-                onClick={handleCreateInventoryItem}
-                className="w-full gap-2"
-              >
-                <Package className="h-4 w-4" />
-                Create Inventory Item
-              </Button>
+              <div className="space-y-2">
+                <Button 
+                  onClick={handleCreateInventoryItem}
+                  className="w-full gap-2"
+                >
+                  <Package className="h-4 w-4" />
+                  Create Inventory Item
+                </Button>
+                <Button 
+                  onClick={handleCreateRandomInventoryItem}
+                  className="w-full gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Random Inventory Item
+                </Button>
+              </div>
             </div>
 
             <div>
@@ -153,6 +204,17 @@ export function DevDashboard() {
               >
                 <Loader2 className="h-4 w-4" />
                 Create Test Wash Request
+              </Button>
+            </div>
+
+            <div>
+              <h3 className="font-medium mb-2">QC Requests</h3>
+              <Button 
+                onClick={handleCreateTestQCRequest}
+                className="w-full gap-2"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Create Test QC Request
               </Button>
             </div>
           </CardContent>
