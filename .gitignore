@@ -34,4 +34,4 @@ yarn-error.log*
 *.sw?
 
 # TypeScript
-*.tsbuildinfo
+*.tsbuildinfoschema.sql
