@@ -7,7 +7,7 @@ import { Package, BoxSelect, Archive, QrCode, Printer, ArrowLeft, Check } from "
 import { generateUniqueBinId } from "@/lib/utils/id-generator"
 import { mockDB } from "@/lib/mock-db/store"
 import { QRCodeSVG } from 'qrcode.react'
-import type { BinZone } from "@/lib/schema/bins"
+import type { Bin, BinZone } from "@/lib/schema/bins"
 
 interface CreateBinDialogProps {
   open: boolean
@@ -20,6 +20,11 @@ interface BinSize {
   icon: React.ReactNode
   label: string
   description: string
+}
+
+interface BinLocation {
+  rack: string
+  shelf: string
 }
 
 const BIN_SIZES: BinSize[] = [
@@ -50,7 +55,7 @@ type Step = 'selection' | 'summary'
 export function CreateBinDialog({ open, onOpenChange, onSuccess }: CreateBinDialogProps) {
   const [step, setStep] = useState<Step>('selection')
   const [selectedCapacity, setSelectedCapacity] = useState<number | null>(null)
-  const [selectedZone, setSelectedZone] = useState<string | null>(null)
+  const [selectedZone, setSelectedZone] = useState<string>('')
   const [previewBin, setPreviewBin] = useState<any>(null)
 
   const handleNext = () => {
@@ -59,13 +64,13 @@ export function CreateBinDialog({ open, onOpenChange, onSuccess }: CreateBinDial
     // Find next available rack and shelf
     const existingBins = mockDB.bins || []
     const zonesRacks = existingBins
-      .filter(b => b.zone === selectedZone)
-      .map(b => ({ rack: b.rack, shelf: b.shelf }))
+      .filter((b: Bin) => b.zone === selectedZone)
+      .map((b: Bin) => ({ rack: b.rack, shelf: b.shelf }))
 
     let nextRack = 'A'
     let nextShelf = '1'
 
-    while (zonesRacks.some(zr => zr.rack === nextRack && zr.shelf === nextShelf)) {
+    while (zonesRacks.some((zr: BinLocation) => zr.rack === nextRack && zr.shelf === nextShelf)) {
       if (nextShelf === '4') {
         nextShelf = '1'
         nextRack = String.fromCharCode(nextRack.charCodeAt(0) + 1)
@@ -145,7 +150,7 @@ export function CreateBinDialog({ open, onOpenChange, onSuccess }: CreateBinDial
 
     // Reset state
     setSelectedCapacity(null)
-    setSelectedZone(null)
+    setSelectedZone('')
     setPreviewBin(null)
     setStep('selection')
     onSuccess?.()
@@ -189,8 +194,8 @@ export function CreateBinDialog({ open, onOpenChange, onSuccess }: CreateBinDial
             <div className="space-y-2">
               <label className="text-sm font-medium">Select Zone</label>
               <Select
-                value={selectedZone || undefined}
-                onValueChange={setSelectedZone}
+                value={selectedZone}
+                onValueChange={(value: string) => setSelectedZone(value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select zone" />

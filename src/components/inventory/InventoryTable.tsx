@@ -1,18 +1,20 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow 
+} from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { InventoryItemLink } from './InventoryItemLink'
-import type { DBInventoryItem } from '@/lib/schema/database'
+import { InventoryItemLink } from "@/components/inventory/InventoryItemLink"
+import type { InventoryItem } from '@/lib/types'
 
-interface InventoryTableProps {
-  data?: DBInventoryItem[]
-  loading?: boolean
+interface Props {
+  data: InventoryItem[]
 }
 
-export function InventoryTable({ data = [], loading }: InventoryTableProps) {
-  if (loading) {
-    return <div>Loading...</div>
-  }
-
+export function InventoryTable({ data }: Props) {
   return (
     <Table>
       <TableHeader>
@@ -30,7 +32,7 @@ export function InventoryTable({ data = [], loading }: InventoryTableProps) {
             <TableCell>
               <InventoryItemLink item={item} className="font-mono hover:underline" />
             </TableCell>
-            <TableCell>{item.current_sku}</TableCell>
+            <TableCell>{item.sku}</TableCell>
             <TableCell>
               <div className="flex gap-2">
                 <Badge>{item.status1}</Badge>
